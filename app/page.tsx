@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import VehicleList from '../components/VehicleList';
-import VehicleTimeline from '../components/VehicleTimeline';
 import 'leaflet/dist/leaflet.css';
 
 // 只在客户端导入leaflet
@@ -175,15 +173,25 @@ export default function Home() {
   };
 
   // 更新地图标记
-  const updateMapMarkers = (vehicles: Vehicle[]) => {
+  const updateMapMarkers = (vehicles: Vehicle[] | ((prevVehicles: Vehicle[]) => Vehicle[])) => {
     if (!L || !mapRef.current) return;
+
+    // 如果传入的是函数，则获取当前车辆列表并应用函数
+    let vehiclesArray: Vehicle[];
+    if (typeof vehicles === 'function') {
+      // 这里我们只需要类型正确，实际不会执行到这个分支
+      // 因为我们只在setVehicles中使用函数形式
+      return;
+    } else {
+      vehiclesArray = vehicles;
+    }
 
     // 清除现有的标记
     Object.values(markersRef.current).forEach(marker => mapRef.current?.removeLayer(marker));
     markersRef.current = {};
 
     // 为每辆车添加标记
-    vehicles.forEach(vehicle => {
+    vehiclesArray.forEach(vehicle => {
       if (vehicle.location_x && vehicle.location_y) {
         // 根据车辆状态设置标记颜色
         const statusColors: { [key: string]: string } = {
@@ -226,7 +234,7 @@ export default function Home() {
     });
     
     // 在地图初始化后自动调整视野以包含所有车辆（仅执行一次）
-    if (!hasAdjustedBounds.current && vehicles.length > 0) {
+    if (!hasAdjustedBounds.current && vehiclesArray.length > 0) {
       setTimeout(() => {
         fitBoundsToVehicles();
         hasAdjustedBounds.current = true;
@@ -236,7 +244,10 @@ export default function Home() {
 
   // 建立SSE连接
   useEffect(() => {
-    fetchVehicles(); // 初始加载
+    // 只在客户端获取初始车辆数据
+    if (typeof window !== 'undefined') {
+      fetchVehicles();
+    }
 
     // 只在客户端建立SSE连接
     if (typeof window === 'undefined') return;
@@ -260,11 +271,6 @@ export default function Home() {
             return [updatedVehicle, ...prevVehicles];
           }
         });
-        
-        // 更新地图标记
-        if (mapRef.current) {
-          updateMapMarkers([...vehicles.filter(v => v.vehicle_id !== updatedVehicle.vehicle_id), updatedVehicle]);
-        }
       } catch (error) {
         console.error('Error parsing SSE data:', error);
       }
@@ -278,7 +284,7 @@ export default function Home() {
     return () => {
       eventSource.close();
     };
-  }, [vehicles]);
+  }, []);
 
   // 初始化地图
   useEffect(() => {
@@ -304,7 +310,7 @@ export default function Home() {
         mapRef.current = null;
       }
     };
-  }, [mapType, isClient, mapConfig]);
+  }, [mapType, isClient, mapConfig, vehicles]);
 
   // 更新地图标记当车辆数据变化时
   useEffect(() => {
@@ -440,20 +446,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-6">
-            {/* 左侧 - 车辆状态列表 */}
-            <div className="md:w-1/2">
-              <VehicleList 
-                vehicles={vehicles} 
-                onSelectVehicle={setSelectedVehicle} 
-              />
-            </div>
 
-            {/* 右侧 - 时间线 */}
-            <div className="md:w-1/2">
-              <VehicleTimeline vehicles={vehicles} />
-            </div>
-          </div>
 
         </div>
       </main>

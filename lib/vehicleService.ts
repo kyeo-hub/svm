@@ -28,6 +28,18 @@ export interface PresetVehicle {
   location_y: number;
 }
 
+// 状态映射对象
+const statusMap: { [key: string]: string } = {
+  'working': '作业中',
+  'waiting': '待命',
+  'maintenance': '维保中',
+  'fault': '故障中',
+  '作业中': '作业中',
+  '待命': '待命',
+  '维保中': '维保中',
+  '故障中': '故障中'
+};
+
 export class VehicleService {
   // 获取所有车辆
   static async getAllVehicles() {
@@ -58,7 +70,7 @@ export class VehicleService {
   }
 
   // 更新车辆状态
-  static async updateVehicleStatus(vehicle_id: string, name: string, status: string, location_x?: number, location_y?: number) {
+  static async updateVehicleStatus(vehicle_id: string, name: string | null, status: string, location_x?: number, location_y?: number) {
     const pool = initializeDatabase();
     const client = await pool.connect();
     
@@ -69,6 +81,19 @@ export class VehicleService {
       // 检查车辆是否存在
       const existingVehicleResult = await client.query('SELECT * FROM vehicles WHERE vehicle_id = $1', [vehicle_id]);
       
+      // 确定要使用的车辆名称
+      let vehicleName = name;
+      if (!vehicleName && existingVehicleResult.rows.length > 0) {
+        // 如果没有提供名称且车辆已存在，则使用现有名称
+        vehicleName = existingVehicleResult.rows[0].name;
+      } else if (!vehicleName) {
+        // 如果没有提供名称且是新车辆，则使用默认名称
+        vehicleName = `车辆-${vehicle_id}`;
+      }
+      
+      // 确定要使用的状态（转换为中文显示）
+      const vehicleStatus = statusMap[status] || status;
+
       if (existingVehicleResult.rows.length > 0) {
         // 如果提供了新的位置信息，则使用新的，否则保留原有的位置信息
         let newX = location_x;
@@ -83,22 +108,22 @@ export class VehicleService {
         // 更新车辆状态
         await client.query(`
           UPDATE vehicles 
-          SET status = $1, location_x = $2, location_y = $3, last_updated = CURRENT_TIMESTAMP
-          WHERE vehicle_id = $4
-        `, [status, newX, newY, vehicle_id]);
+          SET name = $1, status = $2, location_x = $3, location_y = $4, last_updated = CURRENT_TIMESTAMP
+          WHERE vehicle_id = $5
+        `, [vehicleName, vehicleStatus, newX, newY, vehicle_id]);
       } else {
         // 创建新车辆
         await client.query(`
           INSERT INTO vehicles (vehicle_id, name, status, location_x, location_y)
           VALUES ($1, $2, $3, $4, $5)
-        `, [vehicle_id, name, status, location_x, location_y]);
+        `, [vehicle_id, vehicleName, vehicleStatus, location_x, location_y]);
       }
       
-      // 添加状态历史记录
+      // 添加状态历史记录（使用中文状态）
       await client.query(`
         INSERT INTO vehicle_status_history (vehicle_id, status)
         VALUES ($1, $2)
-      `, [vehicle_id, status]);
+      `, [vehicle_id, vehicleStatus]);
       
       // 提交事务
       await client.query('COMMIT');

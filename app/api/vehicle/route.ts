@@ -13,7 +13,7 @@ import { VehicleService } from '../../../lib/vehicleService';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const vehicle_id = searchParams.get('vehicle_id');
-  const name = searchParams.get('name') || `车辆-${vehicle_id}`;
+  const name = searchParams.get('name');
   const status = searchParams.get('status');
   const location_x = searchParams.get('location_x');
   const location_y = searchParams.get('location_y');
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   try {
     const updatedVehicle = await VehicleService.updateVehicleStatus(
       vehicle_id,
-      name,
+      name, // 传递name参数，如果为null则在service中处理
       status,
       location_x ? parseFloat(location_x) : undefined,
       location_y ? parseFloat(location_y) : undefined
