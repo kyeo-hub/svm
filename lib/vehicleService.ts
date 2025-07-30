@@ -70,12 +70,22 @@ export class VehicleService {
       const existingVehicleResult = await client.query('SELECT * FROM vehicles WHERE vehicle_id = $1', [vehicle_id]);
       
       if (existingVehicleResult.rows.length > 0) {
+        // 如果提供了新的位置信息，则使用新的，否则保留原有的位置信息
+        let newX = location_x;
+        let newY = location_y;
+        
+        // 如果没有提供新的位置信息，则使用原有的位置信息
+        if (newX === undefined && newY === undefined) {
+          newX = existingVehicleResult.rows[0].location_x;
+          newY = existingVehicleResult.rows[0].location_y;
+        }
+        
         // 更新车辆状态
         await client.query(`
           UPDATE vehicles 
           SET status = $1, location_x = $2, location_y = $3, last_updated = CURRENT_TIMESTAMP
           WHERE vehicle_id = $4
-        `, [status, location_x, location_y, vehicle_id]);
+        `, [status, newX, newY, vehicle_id]);
       } else {
         // 创建新车辆
         await client.query(`

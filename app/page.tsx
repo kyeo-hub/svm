@@ -70,16 +70,14 @@ const defaultMapConfig = {
   maxZoom: 18,
   zoomControl: true,
   attribution: {
-    osm: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    gaode: '&copy; 高德地图',
-    baidu: '&copy; 百度地图'
+    gaode: '&copy; 高德地图'
   }
 };
 
 export default function Home() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [mapType, setMapType] = useState<'osm' | 'gaode' | 'baidu'>('osm');
+  const [mapType, setMapType] = useState<'gaode'>('gaode');
   const [mapConfig, setMapConfig] = useState(defaultMapConfig);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
@@ -151,38 +149,17 @@ export default function Home() {
     
     let layer;
     
-    switch (type) {
-      case 'gaode':
-        // 高德地图
-        layer = L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
-          attribution: mapConfig.attribution.gaode,
-          maxZoom: mapConfig.maxZoom
-        });
-        break;
-        
-      case 'baidu':
-        // 百度地图
-        layer = L.tileLayer('http://online{s}.map.bdimg.com/tile/?qt=tile&x={x}&y={y}&z={z}&styles=pl&scaler=1&udt=20230606', {
-          attribution: mapConfig.attribution.baidu,
-          maxZoom: mapConfig.maxZoom,
-          subdomains: '0123456789',
-          tms: true
-        });
-        break;
-        
-      default:
-        // OpenStreetMap
-        layer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: mapConfig.attribution.osm,
-          maxZoom: mapConfig.maxZoom
-        });
-    }
+    // 只保留高德地图
+    layer = L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+      attribution: mapConfig.attribution.gaode,
+      maxZoom: mapConfig.maxZoom
+    });
     
     layer.addTo(map);
   };
 
-  // 切换地图类型
-  const switchMapLayer = (type: 'osm' | 'gaode' | 'baidu') => {
+  // 切换地图类型 (只保留高德地图)
+  const switchMapLayer = (type: 'gaode') => {
     setMapType(type);
     
     if (!L || !mapRef.current) return;
@@ -283,6 +260,11 @@ export default function Home() {
             return [updatedVehicle, ...prevVehicles];
           }
         });
+        
+        // 更新地图标记
+        if (mapRef.current) {
+          updateMapMarkers([...vehicles.filter(v => v.vehicle_id !== updatedVehicle.vehicle_id), updatedVehicle]);
+        }
       } catch (error) {
         console.error('Error parsing SSE data:', error);
       }
@@ -296,7 +278,7 @@ export default function Home() {
     return () => {
       eventSource.close();
     };
-  }, []);
+  }, [vehicles]);
 
   // 初始化地图
   useEffect(() => {
@@ -383,22 +365,10 @@ export default function Home() {
                 <h2 className="text-2xl font-semibold">车辆位置地图</h2>
                 <div className="flex space-x-2">
                   <button 
-                    className={`px-3 py-1 rounded text-sm ${mapType === 'osm' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                    onClick={() => switchMapLayer('osm')}
-                  >
-                    OpenStreetMap
-                  </button>
-                  <button 
                     className={`px-3 py-1 rounded text-sm ${mapType === 'gaode' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
                     onClick={() => switchMapLayer('gaode')}
                   >
                     高德地图
-                  </button>
-                  <button 
-                    className={`px-3 py-1 rounded text-sm ${mapType === 'baidu' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                    onClick={() => switchMapLayer('baidu')}
-                  >
-                    百度地图
                   </button>
                   <button 
                     className="px-3 py-1 rounded text-sm bg-gray-200"
@@ -412,7 +382,7 @@ export default function Home() {
               <div 
                 ref={mapContainerRef} 
                 className="h-96 bg-gray-200 rounded-lg relative"
-                style={{ height: '500px' }}
+                style={{ height: '1000px' }}
               >
                 {!isClient && (
                   <div className="flex items-center justify-center h-full">
@@ -481,9 +451,10 @@ export default function Home() {
 
             {/* 右侧 - 时间线 */}
             <div className="md:w-1/2">
-              <VehicleTimeline vehicle={selectedVehicle} />
+              <VehicleTimeline vehicles={vehicles} />
             </div>
           </div>
+
         </div>
       </main>
 
