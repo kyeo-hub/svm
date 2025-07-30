@@ -1,0 +1,58 @@
+[
+  {
+    "vehicle_id": "M2",
+    "name": "特种车辆 M2",
+    "status": "待命",
+    "location_x": 114.466285854578,
+    "location_y": 30.671934347758334
+  },
+  {
+    "vehicle_id": "M3",
+    "name": "特种车辆 M3",
+    "status": "待命",
+    "location_x": 114.4669510424137,
+    "location_y": 30.6721339008044
+  },
+  {
+    "vehicle_id": "M4",
+    "name": "特种车辆 M4",
+    "status": "待命",
+    "location_x": 114.46747004985806,
+    "location_y": 30.67229077458588
+  },
+  {
+    "vehicle_id": "M5",
+    "name": "特种车辆 M5",
+    "status": "待命",
+    "location_x": 114.46777313947675,
+    "location_y": 30.67236113700807
+  },
+  {
+    "vehicle_id": "5场新",
+    "name": "5场新车辆",
+    "status": "待命",
+    "location_x": 114.46777313947675,
+    "location_y": 30.67236113700807
+  },
+  {
+    "vehicle_id": "5场旧",
+    "name": "5场旧车辆",
+    "status": "待命",
+    "location_x": 114.46777313947675,
+    "location_y": 30.67236113700807
+  },
+  {
+    "vehicle_id": "6场新",
+    "name": "6场新车辆",
+    "status": "待命",
+    "location_x": 114.46777313947675,
+    "location_y": 30.67236113700807
+  },
+  {
+    "vehicle_id": "6场旧",
+    "name": "6场旧车辆",
+    "status": "待命",
+    "location_x": 114.46777313947675,
+    "location_y": 30.67236113700807
+  }
+]

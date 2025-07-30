@@ -1,0 +1,15 @@
+{
+  "defaultCenter": {
+    "lat": 114.4677,
+    "lng": 30.6723
+  },
+  "defaultZoom": 10,
+  "minZoom": 3,
+  "maxZoom": 18,
+  "zoomControl": true,
+  "attribution": {
+    "osm": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+    "gaode": "&copy; 高德地图",
+    "baidu": "&copy; 百度地图"
+  }
+}
