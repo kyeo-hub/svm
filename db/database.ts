@@ -13,6 +13,15 @@ export function initializeDatabase() {
     connectionString: databaseUrl,
   });
 
+  // 设置时区为Asia/Shanghai
+  pool.on('connect', async (client) => {
+    try {
+      await client.query("SET TIME ZONE 'Asia/Shanghai'");
+    } catch (error) {
+      console.error('设置时区失败:', error);
+    }
+  });
+
   return pool;
 }
 
@@ -53,21 +62,21 @@ export async function setupDatabase() {
       )
     `);
     console.log('vehicle_status_history 表创建成功或已存在');
-    
-    // 创建车辆状态段表（用于记录每次状态的开始和结束时间）
+
+    // 创建车辆状态段表
     await pool.query(`
       CREATE TABLE IF NOT EXISTS vehicle_status_segments (
         id SERIAL PRIMARY KEY,
         vehicle_id TEXT NOT NULL,
         status TEXT NOT NULL,
-        start_time TIMESTAMP NOT NULL,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         end_time TIMESTAMP,
-        duration_seconds INTEGER DEFAULT 0
+        duration_seconds INTEGER
       )
     `);
     console.log('vehicle_status_segments 表创建成功或已存在');
-    
-    // 创建每日统计表（用于加速查询）
+
+    // 创建每日车辆统计表
     await pool.query(`
       CREATE TABLE IF NOT EXISTS daily_vehicle_stats (
         id SERIAL PRIMARY KEY,
@@ -81,12 +90,14 @@ export async function setupDatabase() {
       )
     `);
     console.log('daily_vehicle_stats 表创建成功或已存在');
-    
-    console.log('数据库表初始化完成');
+
+    console.log('所有数据库表创建成功或已存在');
   } catch (error) {
-    console.error('数据库初始化错误:', error);
+    console.error('数据库表创建失败:', error);
     throw error;
   } finally {
-    await pool.end();
+    if (pool) {
+      await pool.end();
+    }
   }
 }

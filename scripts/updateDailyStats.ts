@@ -1,5 +1,5 @@
 import { VehicleService } from '../lib/vehicleService';
-import { getShanghaiTime } from '../lib/timeUtils';
+import { initializeDatabase } from '../db/database';
 
 async function updateDailyStats() {
   try {
@@ -66,18 +66,12 @@ async function updateSpecificDateStats(dateString: string) {
   }
 }
 
-// 获取命令行参数
+// 解析命令行参数
 const args = process.argv.slice(2);
+let targetDate: string | undefined;
 
-if (args.length === 0) {
-  // 默认更新昨日数据
-  updateYesterdayStats();
-} else if (args.length === 2 && args[0] === '--date') {
-  // 更新指定日期数据
-  updateSpecificDateStats(args[1]);
-} else {
-  console.log('用法:');
-  console.log('  ts-node updateDailyStats.ts                     # 更新昨日统计数据');
-  console.log('  ts-node updateDailyStats.ts --date YYYY-MM-DD   # 更新指定日期统计数据');
-  process.exit(1);
+if (args.includes('--date') && args.length > args.indexOf('--date') + 1) {
+  targetDate = args[args.indexOf('--date') + 1];
 }
+
+updateDailyStatsForDate(targetDate);

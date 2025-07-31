@@ -7,11 +7,7 @@
  * @returns Date对象，表示上海时区的当前时间
  */
 export function getShanghaiTime(): Date {
-  const now = new Date();
-  const timezoneOffset = now.getTimezoneOffset() * 60000; // 转换为毫秒
-  // 上海时区为UTC+8
-  const shanghaiOffset = 8 * 3600000;
-  return new Date(now.getTime() + timezoneOffset + shanghaiOffset);
+  return new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Shanghai"}));
 }
 
 /**
@@ -20,11 +16,7 @@ export function getShanghaiTime(): Date {
  * @returns YYYY-MM-DD格式的字符串
  */
 export function toShanghaiDateString(date: Date): string {
-  const timezoneOffset = date.getTimezoneOffset() * 60000; // 转换为毫秒
-  // 上海时区为UTC+8
-  const shanghaiOffset = 8 * 3600000;
-  const shanghaiTime = new Date(date.getTime() + timezoneOffset + shanghaiOffset);
-  return shanghaiTime.toISOString().split('T')[0];
+  return date.toLocaleString("en-US", {timeZone: "Asia/Shanghai"}).split(',')[0].split('/').reverse().join('-').replace(/\b\d\b/g, '0$&');
 }
 
 /**
@@ -33,25 +25,17 @@ export function toShanghaiDateString(date: Date): string {
  * @returns Date对象，表示上海时区的指定日期的开始时间
  */
 export function getShanghaiStartOfDay(date: string | Date): Date {
-  let targetDate: Date;
+  let dateStr: string;
   
   if (typeof date === 'string') {
-    // 解析 YYYY-MM-DD 格式的日期字符串
-    const [year, month, day] = date.split('-').map(Number);
-    targetDate = new Date(year, month - 1, day); // 月份从0开始
+    dateStr = date;
   } else {
-    targetDate = new Date(date);
+    dateStr = date.toISOString().split('T')[0];
   }
   
-  // 设置为上海时区的当天开始时间
-  const timezoneOffset = targetDate.getTimezoneOffset() * 60000; // 转换为毫秒
-  // 上海时区为UTC+8
-  const shanghaiOffset = 8 * 3600000;
-  const shanghaiTime = new Date(targetDate.getTime() + timezoneOffset + shanghaiOffset);
-  shanghaiTime.setHours(0, 0, 0, 0);
-  
-  // 转换回本地时间以便数据库存储
-  return new Date(shanghaiTime.getTime() - timezoneOffset - shanghaiOffset);
+  // 创建上海时区的日期
+  const shanghaiDate = new Date(`${dateStr}T00:00:00+08:00`);
+  return shanghaiDate;
 }
 
 /**
@@ -60,12 +44,7 @@ export function getShanghaiStartOfDay(date: string | Date): Date {
  * @returns 格式化的日期时间字符串
  */
 export function formatShanghaiTime(date: Date): string {
-  const timezoneOffset = date.getTimezoneOffset() * 60000; // 转换为毫秒
-  // 上海时区为UTC+8
-  const shanghaiOffset = 8 * 3600000;
-  const shanghaiTime = new Date(date.getTime() + timezoneOffset + shanghaiOffset);
-  
-  return shanghaiTime.toLocaleString('zh-CN', {
+  return date.toLocaleString('zh-CN', {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',

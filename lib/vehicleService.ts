@@ -122,10 +122,10 @@ export class VehicleService {
           newY = existingVehicleResult.rows[0].location_y;
         }
         
-        // 更新车辆状态
+        // 更新车辆状态，使用上海时区时间
         await client.query(`
           UPDATE vehicles 
-          SET name = $1, status = $2, location_x = $3, location_y = $4, last_updated = CURRENT_TIMESTAMP
+          SET name = $1, status = $2, location_x = $3, location_y = $4, last_updated = NOW()
           WHERE vehicle_id = $5
         `, [vehicleName, vehicleStatus, newX, newY, vehicle_id]);
       } else {
@@ -136,32 +136,32 @@ export class VehicleService {
         `, [vehicle_id, vehicleName, vehicleStatus, location_x, location_y]);
       }
       
-      // 结束上一个状态段
+      // 结束上一个状态段，使用上海时区时间
       await client.query(`
         UPDATE vehicle_status_segments 
-        SET end_time = CURRENT_TIMESTAMP, 
-            duration_seconds = EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - start_time))
+        SET end_time = NOW(), 
+            duration_seconds = EXTRACT(EPOCH FROM (NOW() - start_time))
         WHERE vehicle_id = $1 AND end_time IS NULL
       `, [vehicle_id]);
       
-      // 添加新的状态段
+      // 添加新的状态段，使用上海时区时间
       await client.query(`
         INSERT INTO vehicle_status_segments (vehicle_id, status, start_time)
-        VALUES ($1, $2, CURRENT_TIMESTAMP)
+        VALUES ($1, $2, NOW())
       `, [vehicle_id, vehicleStatus]);
       
-      // 添加状态历史记录（使用中文状态）
+      // 添加状态历史记录，使用上海时区时间
       await client.query(`
-        INSERT INTO vehicle_status_history (vehicle_id, status)
-        VALUES ($1, $2)
+        INSERT INTO vehicle_status_history (vehicle_id, status, timestamp)
+        VALUES ($1, $2, NOW())
       `, [vehicle_id, vehicleStatus]);
       
       // 提交事务
       await client.query('COMMIT');
       
-      // 返回更新后的车辆信息
-      const result = await pool.query('SELECT * FROM vehicles WHERE vehicle_id = $1', [vehicle_id]);
-      return result.rows[0];
+      // 获取并返回更新后的车辆信息
+      const updatedVehicleResult = await pool.query('SELECT * FROM vehicles WHERE vehicle_id = $1', [vehicle_id]);
+      return updatedVehicleResult.rows[0];
     } catch (error) {
       // 回滚事务
       await client.query('ROLLBACK');
@@ -169,14 +169,87 @@ export class VehicleService {
       throw error;
     } finally {
       client.release();
-      await pool.end();
     }
   }
 
+  // 更新当天的统计信息
+  static async updateDailyStatsForToday(client: any, vehicle_id: string, newStatus: string) {
+    try {
+      // 获取今天的日期（上海时区）
+      const todayResult = await client.query("SELECT CURRENT_DATE as today");
+      const today = todayResult.rows[0].today;
+      
+      // 获取该车辆今天的统计记录
+      let statsResult = await client.query(
+        'SELECT * FROM daily_vehicle_stats WHERE vehicle_id = $1 AND date = $2',
+        [vehicle_id, today]
+      );
+      
+      // 如果没有记录，则创建一条新记录
+      if (statsResult.rows.length === 0) {
+        await client.query(`
+          INSERT INTO daily_vehicle_stats (vehicle_id, date)
+          VALUES ($1, $2)
+        `, [vehicle_id, today]);
+        
+        statsResult = await client.query(
+          'SELECT * FROM daily_vehicle_stats WHERE vehicle_id = $1 AND date = $2',
+          [vehicle_id, today]
+        );
+      }
+      
+      // 获取上一个状态段的信息
+      const lastSegmentResult = await client.query(`
+        SELECT status, EXTRACT(EPOCH FROM (NOW() - start_time)) as duration
+        FROM vehicle_status_segments 
+        WHERE vehicle_id = $1 AND end_time IS NULL
+      `, [vehicle_id]);
+      
+      // 如果有上一个状态段，更新统计信息
+      if (lastSegmentResult.rows.length > 0) {
+        const lastStatus = lastSegmentResult.rows[0].status;
+        const duration = Math.floor(lastSegmentResult.rows[0].duration);
+        
+        // 根据上一个状态更新对应的时长字段
+        let field = '';
+        switch (lastStatus) {
+          case '作业中':
+            field = 'working_seconds';
+            break;
+          case '待命':
+            field = 'waiting_seconds';
+            break;
+          case '维保中':
+            field = 'maintenance_seconds';
+            break;
+          case '故障中':
+            field = 'fault_seconds';
+            break;
+          default:
+            field = '';
+        }
+        
+        if (field) {
+          await client.query(`
+            UPDATE daily_vehicle_stats 
+            SET ${field} = ${field} + $1
+            WHERE vehicle_id = $2 AND date = $3
+          `, [duration, vehicle_id, today]);
+        }
+      }
+    } catch (error) {
+      console.error('更新每日统计信息错误:', error);
+      throw error;
+    }
+  }
+  
   // 获取车辆状态历史
   static async getVehicleStatusHistory(vehicle_id: string, hours: number = 24) {
     try {
-      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+      // 获取当前时间的上海时间
+      const shanghaiTime = await this.getShanghaiTimestamp();
+      const since = new Date(shanghaiTime.getTime() - hours * 60 * 60 * 1000);
+      
       const result = await pool.query(`
         SELECT * FROM vehicle_status_history 
         WHERE vehicle_id = $1 AND timestamp >= $2 
@@ -186,6 +259,27 @@ export class VehicleService {
     } catch (error) {
       console.error('获取车辆状态历史错误:', error);
       throw error;
+    }
+  }
+  
+  // 获取上海时间戳
+  static async getShanghaiTimestamp(): Promise<Date> {
+    // 使用已有的 getShanghaiTime 函数获取当前时间
+    const now = getShanghaiTime();
+    // 创建一个新连接来获取数据库中的当前时间
+    const client = await pool.connect();
+    try {
+      // 获取数据库中的当前时间
+      const result = await client.query("SELECT NOW() as db_time");
+      const dbTime = result.rows[0].db_time;
+      
+      // 将数据库时间转换为上海时间
+      const shanghaiTime = new Date(dbTime);
+      shanghaiTime.setHours(shanghaiTime.getHours() + 8); // UTC+8 时区
+      
+      return shanghaiTime;
+    } finally {
+      client.release();
     }
   }
   
@@ -368,35 +462,54 @@ export class VehicleService {
   }
   
   // 初始化预设车辆
-  static async initializeDefaultVehicles() {
+  static async initializePresetVehicles() {
+    const client = await pool.connect();
+    
     try {
-      console.log('开始初始化默认车辆数据...');
+      // 读取预设车辆数据
+      const presetVehiclesData = await readFile(join(process.cwd(), 'data', 'presetVehicles.json'), 'utf8');
+      const presetVehicles: PresetVehicle[] = JSON.parse(presetVehiclesData);
       
-      // 从JSON文件加载预设车辆数据
-      const presetVehicles = await this.loadPresetVehicles();
+      // 开始事务
+      await client.query('BEGIN');
       
-      // 逐个添加车辆
+      // 插入预设车辆数据
       for (const vehicle of presetVehicles) {
-        await this.updateVehicleStatus(
-          vehicle.vehicle_id,
-          vehicle.name,
-          vehicle.status,
-          vehicle.location_x,
-          vehicle.location_y
-        );
-        console.log(`已初始化车辆: ${vehicle.vehicle_id}`);
+        await client.query(`
+          INSERT INTO vehicles (vehicle_id, name, status, location_x, location_y)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (vehicle_id) DO NOTHING
+        `, [vehicle.vehicle_id, vehicle.name, vehicle.status, vehicle.location_x, vehicle.location_y]);
+        
+        // 添加初始状态段
+        await client.query(`
+          INSERT INTO vehicle_status_segments (vehicle_id, status, start_time)
+          VALUES ($1, $2, NOW())
+        `, [vehicle.vehicle_id, vehicle.status]);
+        
+        // 添加初始状态历史记录
+        await client.query(`
+          INSERT INTO vehicle_status_history (vehicle_id, status, timestamp)
+          VALUES ($1, $2, NOW())
+        `, [vehicle.vehicle_id, vehicle.status]);
       }
       
-      console.log('默认车辆数据初始化完成!');
+      // 提交事务
+      await client.query('COMMIT');
+      
+      console.log('预设车辆数据初始化完成');
     } catch (error) {
-      console.error('初始化默认车辆数据时出错:', error);
+      // 回滚事务
+      await client.query('ROLLBACK');
+      console.error('初始化预设车辆数据错误:', error);
       throw error;
+    } finally {
+      client.release();
     }
   }
   
   // 删除车辆及其相关数据
   static async deleteVehicle(vehicle_id: string) {
-    const pool = initializeDatabase();
     const client = await pool.connect();
     
     try {
@@ -427,7 +540,6 @@ export class VehicleService {
       throw error;
     } finally {
       client.release();
-      await pool.end();
     }
   }
 }

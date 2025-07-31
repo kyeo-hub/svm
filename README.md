@@ -77,7 +77,7 @@
 认证检查说明：
 - GET /api/vehicles（获取所有车辆）：公开访问
 - POST /api/vehicles（创建车辆）：需要认证
-- PUT/DELETE /api/vehicles/[id]（更新/删除车辆）：需要认证
+- PUT/DELETE /api/vehicles/\[id\]（更新/删除车辆）：需要认证
 - GET /api/vehicle（更新车辆状态）：使用API密钥认证
 
 所有认证都通过HTTP Authorization头传递，格式为：`Bearer <token_or_api_key>`
@@ -89,6 +89,12 @@
 ```
 TZ=Asia/Shanghai
 ```
+
+系统在以下方面使用时区设置：
+1. 数据库连接时设置时区为Asia/Shanghai
+2. 所有时间相关的数据库操作使用NOW()函数获取当前上海时区时间
+3. 前端显示时间会转换为上海时区
+4. 统计数据计算基于上海时区的日期
 
 ## 管理页面登录
 
