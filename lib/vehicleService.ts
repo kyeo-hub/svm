@@ -1,7 +1,10 @@
-import { initializeDatabase } from '../db/database';
 import { Pool } from 'pg';
+import { initializeDatabase } from '../db/database';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+
+// Create a singleton pool instance
+const pool = initializeDatabase();
 
 export interface Vehicle {
   id?: number;
@@ -62,29 +65,23 @@ const statusMap: { [key: string]: string } = {
 export class VehicleService {
   // 获取所有车辆
   static async getAllVehicles() {
-    const pool = initializeDatabase();
     try {
       const result = await pool.query('SELECT * FROM vehicles ORDER BY last_updated DESC');
       return result.rows;
     } catch (error) {
       console.error('获取车辆列表错误:', error);
       throw error;
-    } finally {
-      await pool.end();
     }
   }
 
   // 根据ID获取车辆
   static async getVehicleById(vehicle_id: string) {
-    const pool = initializeDatabase();
     try {
       const result = await pool.query('SELECT * FROM vehicles WHERE vehicle_id = $1', [vehicle_id]);
       return result.rows[0];
     } catch (error) {
       console.error('获取车辆信息错误:', error);
       throw error;
-    } finally {
-      await pool.end();
     }
   }
 
@@ -177,7 +174,6 @@ export class VehicleService {
 
   // 获取车辆状态历史
   static async getVehicleStatusHistory(vehicle_id: string, hours: number = 24) {
-    const pool = initializeDatabase();
     try {
       const since = new Date(Date.now() - hours * 60 * 60 * 1000);
       const result = await pool.query(`
@@ -189,14 +185,11 @@ export class VehicleService {
     } catch (error) {
       console.error('获取车辆状态历史错误:', error);
       throw error;
-    } finally {
-      await pool.end();
     }
   }
   
   // 获取车辆状态段
   static async getVehicleStatusSegments(vehicle_id: string, startDate: Date, endDate: Date) {
-    const pool = initializeDatabase();
     try {
       const result = await pool.query(`
         SELECT * FROM vehicle_status_segments
@@ -209,14 +202,11 @@ export class VehicleService {
     } catch (error) {
       console.error('获取车辆状态段错误:', error);
       throw error;
-    } finally {
-      await pool.end();
     }
   }
   
   // 获取车辆每日统计
   static async getVehicleDailyStats(vehicle_id: string, startDate: Date, endDate: Date) {
-    const pool = initializeDatabase();
     try {
       const result = await pool.query(`
         SELECT * FROM daily_vehicle_stats
@@ -229,14 +219,11 @@ export class VehicleService {
     } catch (error) {
       console.error('获取车辆每日统计错误:', error);
       throw error;
-    } finally {
-      await pool.end();
     }
   }
   
   // 获取车辆在指定时间段内的状态时长统计
   static async getVehicleStatusDurationStats(vehicle_id: string, startDate: Date, endDate: Date) {
-    const pool = initializeDatabase();
     try {
       // 查询状态段表计算时长
       const result = await pool.query(`
@@ -271,8 +258,6 @@ export class VehicleService {
     } catch (error) {
       console.error('获取车辆状态时长统计错误:', error);
       throw error;
-    } finally {
-      await pool.end();
     }
   }
   
@@ -282,7 +267,6 @@ export class VehicleService {
     // 设置为目标日期的开始时间
     targetDate.setHours(0, 0, 0, 0);
     
-    const pool = initializeDatabase();
     const client = await pool.connect();
     
     try {
@@ -367,7 +351,6 @@ export class VehicleService {
       throw error;
     } finally {
       client.release();
-      await pool.end();
     }
   }
   

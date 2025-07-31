@@ -4,11 +4,11 @@ import { setupDatabase } from '../../../db/database';
 
 export async function POST(request: NextRequest) {
   try {
-    // 检查API密钥
+    // 检查API密钥（仅在设置了API_KEY环境变量时才进行验证）
     const authHeader = request.headers.get('authorization');
     const apiKey = process.env.API_KEY || 'default-key';
     
-    if (!authHeader || authHeader !== `Bearer ${apiKey}`) {
+    if (process.env.API_KEY && (!authHeader || authHeader !== `Bearer ${apiKey}`)) {
       return new Response('Unauthorized', { status: 401 });
     }
     

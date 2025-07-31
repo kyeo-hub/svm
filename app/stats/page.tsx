@@ -47,19 +47,35 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {/* 头部 */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900">特种车辆设备管理系统 - 统计分析</h1>
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900">特种车辆设备管理系统 - 统计分析</h1>
+            <a 
+              href="/" 
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+            >
+              返回主页
+            </a>
+          </div>
         </div>
       </header>
 
       <main>
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              错误: {error}
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+              <div className="flex">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <p className="font-medium">错误</p>
+                  <p>{error}</p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -69,51 +85,21 @@ export default function StatsPage() {
             </div>
           ) : (
             <div className="px-4 py-6 sm:px-0">
-              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">选择车辆</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {vehicles.map((vehicle) => (
-                    <div
-                      key={vehicle.vehicle_id}
-                      className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-                        selectedVehicleId === vehicle.vehicle_id
-                          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                      onClick={() => setSelectedVehicleId(vehicle.vehicle_id)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-lg">{vehicle.name}</h3>
-                          <p className="text-gray-600 text-sm">编号: {vehicle.vehicle_id}</p>
-                        </div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          vehicle.status === '作业中' 
-                            ? 'bg-green-100 text-green-800' 
-                            : vehicle.status === '待命' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : vehicle.status === '维保中' 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {vehicle.status}
-                        </span>
-                      </div>
-                      <p className="text-gray-500 text-sm mt-2">
-                        最后更新: {new Date(vehicle.last_updated).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {selectedVehicleId && (
-                <VehicleStats vehicleId={selectedVehicleId} />
+                <VehicleStats 
+                  vehicleId={selectedVehicleId} 
+                  vehicles={vehicles}
+                  onVehicleChange={setSelectedVehicleId}
+                />
               )}
 
               {vehicles.length === 0 && !loading && (
-                <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-                  <p className="text-gray-500">暂无车辆数据</p>
+                <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="mt-4 text-lg font-medium text-gray-900">暂无车辆数据</h3>
+                  <p className="mt-1 text-gray-500">系统中还没有添加任何车辆。</p>
                 </div>
               )}
             </div>

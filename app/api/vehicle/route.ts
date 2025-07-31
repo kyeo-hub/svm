@@ -1,3 +1,5 @@
+import { NextRequest } from 'next/server';
+import { VehicleService } from '../../../lib/vehicleService';
 import { Pool } from 'pg';
 
 const pool = new Pool({
@@ -7,8 +9,29 @@ const pool = new Pool({
 export const query = (text: string, params?: any[]) => {
   return pool.query(text, params);
 };
-import { NextRequest } from 'next/server';
-import { VehicleService } from '../../../lib/vehicleService';
+
+// 简单的广播机制
+let clients: any[] = [];
+
+export function addClient(client: any) {
+  clients.push(client);
+}
+
+export function removeClient(client: any) {
+  clients = clients.filter(c => c !== client);
+}
+
+function broadcastUpdate(data: any) {
+  const message = `data: ${JSON.stringify(data)}\n\n`;
+  clients.forEach(client => {
+    try {
+      client.write(message);
+    } catch (error) {
+      console.error('Error broadcasting message:', error);
+      removeClient(client);
+    }
+  });
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -22,7 +45,8 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const apiKey = process.env.API_KEY || 'default-key';
   
-  if (!authHeader || authHeader !== `Bearer ${apiKey}`) {
+  // 仅在设置了API_KEY环境变量时才进行验证
+  if (process.env.API_KEY && (!authHeader || authHeader !== `Bearer ${apiKey}`)) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -53,27 +77,4 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' }
     });
   }
-}
-
-// 简单的广播机制
-let clients: any[] = [];
-
-export function addClient(client: any) {
-  clients.push(client);
-}
-
-export function removeClient(client: any) {
-  clients = clients.filter(c => c !== client);
-}
-
-function broadcastUpdate(data: any) {
-  const message = `data: ${JSON.stringify(data)}\n\n`;
-  clients.forEach(client => {
-    try {
-      client.write(message);
-    } catch (error) {
-      console.error('Error broadcasting message:', error);
-      removeClient(client);
-    }
-  });
 }
