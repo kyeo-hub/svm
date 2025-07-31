@@ -83,10 +83,34 @@ export default function Home() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
   const hasAdjustedBounds = useRef(false); // 用于跟踪是否已自动调整视野
+  
+  // SSE连接状态和时间状态
+  const [sseStatus, setSseStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 设置客户端标识
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // 更新当前时间
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleString('zh-CN', { 
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }));
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   // 获取所有车辆数据
@@ -243,17 +267,29 @@ export default function Home() {
   };
 
   // 建立SSE连接
-  useEffect(() => {
-    // 只在客户端获取初始车辆数据
-    if (typeof window !== 'undefined') {
-      fetchVehicles();
-    }
-
-    // 只在客户端建立SSE连接
+  const connectSSE = () => {
     if (typeof window === 'undefined') return;
 
-    const eventSource = new EventSource('/api/events');
+    // 清除之前的重连定时器
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    setSseStatus('connecting');
     
+    // 关闭之前的连接
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const eventSource = new EventSource('/api/events');
+    eventSourceRef.current = eventSource;
+    
+    eventSource.onopen = () => {
+      setSseStatus('connected');
+    };
+
     eventSource.onmessage = (event) => {
       if (event.data === 'heartbeat') return;
       if (event.data === 'connected') return;
@@ -264,75 +300,15 @@ export default function Home() {
         setVehicles(prevVehicles => {
           const existingIndex = prevVehicles.findIndex(v => v.vehicle_id === updatedVehicle.vehicle_id);
           if (existingIndex >= 0) {
+            // 更新现有车辆
             const updatedVehicles = [...prevVehicles];
-            updatedVehicles[existingIndex] = updatedVehicle;
+            updatedVehicles[existingIndex] = {...updatedVehicle};
             return updatedVehicles;
           } else {
+            // 添加新车辆到列表开头
             return [updatedVehicle, ...prevVehicles];
           }
         });
-        
-        // 当接收到新的车辆数据时，自动调整地图视野
-        if (mapRef.current && updatedVehicle.location_x && updatedVehicle.location_y) {
-          const newLocation = L.latLng(updatedVehicle.location_y, updatedVehicle.location_x);
-          const map = mapRef.current;
-          
-          // 检查位置是否在当前视野内
-          if (!map.getBounds().contains(newLocation)) {
-            // 如果不在视野内，调整视野以包含新位置
-            map.flyTo(newLocation, Math.max(map.getZoom(), 12), {
-              animate: true,
-              duration: 1.5 // 动画持续时间（秒）
-            });
-          }
-          
-          // 更新对应车辆的标记
-          if (markersRef.current[updatedVehicle.vehicle_id]) {
-            map.removeLayer(markersRef.current[updatedVehicle.vehicle_id]);
-            delete markersRef.current[updatedVehicle.vehicle_id];
-            
-            // 重新创建标记
-            if (updatedVehicle.location_x && updatedVehicle.location_y) {
-              // 根据车辆状态设置标记颜色
-              const statusColors: { [key: string]: string } = {
-                '作业中': 'green',
-                '待命': 'blue',
-                '维保中': 'yellow',
-                '故障中': 'red'
-              };
-  
-              // 创建自定义图标
-              const icon = L.divIcon({
-                className: 'vehicle-marker',
-                html: `<div class="marker" style="background-color: ${statusColors[updatedVehicle.status] || 'gray'}">
-                        <span class="marker-text">${updatedVehicle.vehicle_id}</span>
-                      </div>`,
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
-              });
-  
-              // 创建新的标记
-              const marker = L.marker([updatedVehicle.location_y, updatedVehicle.location_x], { icon })
-                .addTo(map)
-                .bindPopup(`
-                  <div>
-                    <h3>${updatedVehicle.name}</h3>
-                    <p>编号: ${updatedVehicle.vehicle_id}</p>
-                    <p>状态: ${updatedVehicle.status}</p>
-                    <p>更新时间: ${new Date(updatedVehicle.last_updated).toLocaleString()}</p>
-                  </div>
-                `);
-  
-              // 添加点击事件
-              marker.on('click', () => {
-                setSelectedVehicle(updatedVehicle);
-              });
-  
-              // 保存新的标记引用
-              markersRef.current[updatedVehicle.vehicle_id] = marker;
-            }
-          }
-        }
       } catch (error) {
         console.error('Error parsing SSE data:', error);
       }
@@ -340,11 +316,37 @@ export default function Home() {
 
     eventSource.onerror = (error) => {
       console.error('SSE error:', error);
+      setSseStatus('disconnected');
+      
+      // 尝试重连
+      if (!reconnectTimeoutRef.current) {
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectSSE();
+        }, 5000); // 5秒后重连
+      }
     };
+  };
+
+  // 建立SSE连接
+  useEffect(() => {
+    // 只在客户端获取初始车辆数据
+    if (typeof window !== 'undefined') {
+      fetchVehicles();
+    }
+
+    // 只在客户端建立SSE连接
+    if (typeof window !== 'undefined') {
+      connectSSE();
+    }
 
     // 清理函数
     return () => {
-      eventSource.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -394,13 +396,6 @@ export default function Home() {
         fitBoundsToVehicles();
         hasAdjustedBounds.current = true;
       }, 100);
-    }
-    
-    // 当车辆位置更新时，自动调整视野以适应所有车辆
-    if (vehicles.length > 0 && hasAdjustedBounds.current) {
-      setTimeout(() => {
-        fitBoundsToVehicles();
-      }, 500);
     }
   }, [vehicles, selectedVehicle, isClient]);
 
@@ -456,7 +451,28 @@ export default function Home() {
     fitBoundsToVehicles();
   };
 
+  // 手动重连SSE
+  const handleReconnect = () => {
+    connectSSE();
+  };
+
   const statusCounts = getStatusCounts(vehicles);
+
+  // 获取连接状态显示文本和颜色
+  const getSseStatusDisplay = () => {
+    switch (sseStatus) {
+      case 'connected':
+        return { text: '已连接', color: 'text-green-500' };
+      case 'connecting':
+        return { text: '连接中...', color: 'text-yellow-500' };
+      case 'disconnected':
+        return { text: '已断开', color: 'text-red-500' };
+      default:
+        return { text: '未知', color: 'text-gray-500' };
+    }
+  };
+
+  const sseStatusDisplay = getSseStatusDisplay();
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -503,6 +519,29 @@ export default function Home() {
                   >
                     自动调整视野
                   </button>
+                </div>
+              </div>
+              
+              {/* SSE状态和当前时间显示 */}
+              <div className="mb-4 flex flex-wrap items-center justify-between bg-gray-50 p-2 rounded">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-600 mr-2">SSE状态:</span>
+                    <span className={`text-sm font-medium ${sseStatusDisplay.color}`}>
+                      {sseStatusDisplay.text}
+                    </span>
+                    {sseStatus === 'disconnected' && (
+                      <button 
+                        onClick={handleReconnect}
+                        className="ml-2 text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
+                      >
+                        重新连接
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600">
+                  当前时间: {currentTime}
                 </div>
               </div>
               
