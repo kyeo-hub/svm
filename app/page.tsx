@@ -104,9 +104,16 @@ export default function Home() {
   useEffect(() => {
     const loadMapConfig = async () => {
       try {
-        // 在实际应用中，这里可以从配置文件加载地图设置
-        // 为了简化，我们使用默认配置
-        setMapConfig(defaultMapConfig);
+        // 从配置文件加载地图设置
+        const response = await fetch('/api/map-config');
+        if (response.ok) {
+          const config = await response.json();
+          setMapConfig(config);
+        } else {
+          // 如果无法获取配置，则使用默认配置
+          console.warn('无法加载地图配置，使用默认配置');
+          setMapConfig(defaultMapConfig);
+        }
       } catch (error) {
         console.error('加载地图配置失败，使用默认配置:', error);
         setMapConfig(defaultMapConfig);
@@ -233,14 +240,6 @@ export default function Home() {
         markersRef.current[vehicle.vehicle_id] = marker;
       }
     });
-    
-    // 在地图初始化后自动调整视野以包含所有车辆（仅执行一次）
-    if (!hasAdjustedBounds.current && vehiclesArray.length > 0) {
-      setTimeout(() => {
-        fitBoundsToVehicles();
-        hasAdjustedBounds.current = true;
-      }, 100);
-    }
   };
 
   // 建立SSE连接
@@ -272,6 +271,68 @@ export default function Home() {
             return [updatedVehicle, ...prevVehicles];
           }
         });
+        
+        // 当接收到新的车辆数据时，自动调整地图视野
+        if (mapRef.current && updatedVehicle.location_x && updatedVehicle.location_y) {
+          const newLocation = L.latLng(updatedVehicle.location_y, updatedVehicle.location_x);
+          const map = mapRef.current;
+          
+          // 检查位置是否在当前视野内
+          if (!map.getBounds().contains(newLocation)) {
+            // 如果不在视野内，调整视野以包含新位置
+            map.flyTo(newLocation, Math.max(map.getZoom(), 12), {
+              animate: true,
+              duration: 1.5 // 动画持续时间（秒）
+            });
+          }
+          
+          // 更新对应车辆的标记
+          if (markersRef.current[updatedVehicle.vehicle_id]) {
+            map.removeLayer(markersRef.current[updatedVehicle.vehicle_id]);
+            delete markersRef.current[updatedVehicle.vehicle_id];
+            
+            // 重新创建标记
+            if (updatedVehicle.location_x && updatedVehicle.location_y) {
+              // 根据车辆状态设置标记颜色
+              const statusColors: { [key: string]: string } = {
+                '作业中': 'green',
+                '待命': 'blue',
+                '维保中': 'yellow',
+                '故障中': 'red'
+              };
+  
+              // 创建自定义图标
+              const icon = L.divIcon({
+                className: 'vehicle-marker',
+                html: `<div class="marker" style="background-color: ${statusColors[updatedVehicle.status] || 'gray'}">
+                        <span class="marker-text">${updatedVehicle.vehicle_id}</span>
+                      </div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+              });
+  
+              // 创建新的标记
+              const marker = L.marker([updatedVehicle.location_y, updatedVehicle.location_x], { icon })
+                .addTo(map)
+                .bindPopup(`
+                  <div>
+                    <h3>${updatedVehicle.name}</h3>
+                    <p>编号: ${updatedVehicle.vehicle_id}</p>
+                    <p>状态: ${updatedVehicle.status}</p>
+                    <p>更新时间: ${new Date(updatedVehicle.last_updated).toLocaleString()}</p>
+                  </div>
+                `);
+  
+              // 添加点击事件
+              marker.on('click', () => {
+                setSelectedVehicle(updatedVehicle);
+              });
+  
+              // 保存新的标记引用
+              markersRef.current[updatedVehicle.vehicle_id] = marker;
+            }
+          }
+        }
       } catch (error) {
         console.error('Error parsing SSE data:', error);
       }
@@ -311,7 +372,7 @@ export default function Home() {
         mapRef.current = null;
       }
     };
-  }, [mapType, isClient, mapConfig, vehicles]);
+  }, [mapType, isClient, mapConfig]);
 
   // 更新地图标记当车辆数据变化时
   useEffect(() => {
@@ -326,7 +387,50 @@ export default function Home() {
         marker.openPopup();
       }
     }
+    
+    // 在地图初始化后自动调整视野以包含所有车辆（仅执行一次）
+    if (!hasAdjustedBounds.current && vehicles.length > 0) {
+      setTimeout(() => {
+        fitBoundsToVehicles();
+        hasAdjustedBounds.current = true;
+      }, 100);
+    }
+    
+    // 当车辆位置更新时，自动调整视野以适应所有车辆
+    if (vehicles.length > 0 && hasAdjustedBounds.current) {
+      setTimeout(() => {
+        fitBoundsToVehicles();
+      }, 500);
+    }
   }, [vehicles, selectedVehicle, isClient]);
+
+  /**
+   * 检查指定位置是否在地图视野内
+   * @param latLng 要检查的位置
+   * @param map 地图实例
+   * @param buffer 缓冲区比例（0-1），0表示完全匹配，1表示预留100%的缓冲空间
+   * @returns 是否在视野内
+   */
+  const isLocationInMapBounds = (latLng: L.LatLng, map: L.Map, buffer: number = 0.2): boolean => {
+    if (!map) return false;
+    
+    const bounds = map.getBounds();
+    
+    // 获取视野的西南角和东北角
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+    
+    // 计算带有缓冲区的实际可见区域
+    const bufferLat = (northEast.lat - southWest.lat) * buffer;
+    const bufferLng = (northEast.lng - southWest.lng) * buffer;
+    
+    const extendedBounds = L.latLngBounds(
+      L.latLng(southWest.lat - bufferLat, southWest.lng - bufferLng),
+      L.latLng(northEast.lat + bufferLat, northEast.lng + bufferLng)
+    );
+    
+    return extendedBounds.contains(latLng);
+  };
 
   // 自动调整地图视野以包含所有车辆
   const fitBoundsToVehicles = () => {
