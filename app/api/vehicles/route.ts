@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 创建新车辆
+// 创建新车辆或导入车辆数据
 export async function POST(request: NextRequest) {
   // 检查认证状态 - 创建车辆需要认证
   if (!isAuthenticated(request)) {
@@ -36,7 +36,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return new Response(JSON.stringify({ error: '请求体不是有效的JSON格式' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     
     // 简单的API密钥验证
     const authHeader = request.headers.get('authorization');
@@ -47,31 +55,59 @@ export async function POST(request: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
     
-    const { vehicle_id, name, status, location_x, location_y } = body;
-    
-    if (!vehicle_id || !name || !status) {
-      return new Response(JSON.stringify({ error: '缺少必要参数' }), {
-        status: 400,
+    // 检查是否是导入请求
+    if (body.vehicles && Array.isArray(body.vehicles)) {
+      // 导入车辆数据
+      const { vehicles } = body;
+      
+      let importedCount = 0;
+      for (const vehicleData of vehicles) {
+        const { vehicle_id, name, status, location_x, location_y } = vehicleData;
+        
+        if (vehicle_id && name && status) {
+          await VehicleService.updateVehicleStatus(
+            vehicle_id,
+            name,
+            status,
+            location_x,
+            location_y
+          );
+          importedCount++;
+        }
+      }
+      
+      return new Response(JSON.stringify({ importedCount }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } else {
+      // 创建单个车辆
+      const { vehicle_id, name, status, location_x, location_y } = body;
+      
+      if (!vehicle_id || !name || !status) {
+        return new Response(JSON.stringify({ error: '缺少必要参数' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // 创建车辆
+      const vehicle = await VehicleService.updateVehicleStatus(
+        vehicle_id,
+        name,
+        status,
+        location_x,
+        location_y
+      );
+      
+      return new Response(JSON.stringify(vehicle), {
+        status: 201,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    
-    // 创建车辆
-    const vehicle = await VehicleService.updateVehicleStatus(
-      vehicle_id,
-      name,
-      status,
-      location_x,
-      location_y
-    );
-    
-    return new Response(JSON.stringify(vehicle), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' }
-    });
   } catch (error) {
-    console.error('创建车辆失败:', error);
-    return new Response(JSON.stringify({ error: '创建车辆失败' }), {
+    console.error('操作失败:', error);
+    return new Response(JSON.stringify({ error: '操作失败: ' + (error instanceof Error ? error.message : '未知错误') }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

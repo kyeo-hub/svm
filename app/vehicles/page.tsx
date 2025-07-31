@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
 
@@ -32,6 +32,7 @@ export default function VehicleManagement() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   // 检查认证状态
@@ -297,6 +298,99 @@ export default function VehicleManagement() {
     link.click();
   };
 
+  // 导出车辆数据为JSON
+  const exportVehiclesToJSON = () => {
+    try {
+      const dataStr = JSON.stringify(vehicles, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `车辆数据_${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setSuccess('车辆数据导出成功');
+    } catch (err) {
+      console.error('导出失败:', err);
+      setError('导出失败: ' + (err instanceof Error ? err.message : '未知错误'));
+    }
+  };
+
+  // 处理文件上传
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedVehicles: Vehicle[] = JSON.parse(content);
+        
+        // 验证数据格式
+        if (!Array.isArray(importedVehicles)) {
+          throw new Error('无效的数据格式');
+        }
+        
+        // 确认导入
+        const confirmImport = confirm(`确定要导入 ${importedVehicles.length} 辆车的数据吗？这将覆盖现有数据。`);
+        if (!confirmImport) return;
+        
+        // 发送到后端导入
+        const apiKey = process.env.NEXT_PUBLIC_API_KEY || '';
+        if (!apiKey) {
+          router.push('/vehicles/login');
+          return;
+        }
+
+        const response = await fetch('/api/vehicles', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({ vehicles: importedVehicles })
+        });
+
+        if (response.status === 401) {
+          router.push('/vehicles/login');
+          return;
+        }
+
+        // 先检查响应是否为空
+        const responseText = await response.text();
+        if (!responseText) {
+          throw new Error('服务器返回空响应');
+        }
+
+        let result;
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          throw new Error('服务器返回无效的JSON响应: ' + responseText);
+        }
+
+        if (!response.ok) {
+          throw new Error(result.error || '导入失败');
+        }
+
+        setSuccess(`成功导入 ${result.importedCount} 辆车`);
+        fetchVehicles(); // 重新获取车辆列表
+      } catch (err) {
+        console.error('导入失败:', err);
+        setError('导入失败: ' + (err instanceof Error ? err.message : '未知错误'));
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // 触发文件选择
+  const triggerFileSelect = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -426,6 +520,29 @@ export default function VehicleManagement() {
                 )}
               </div>
             </form>
+          </div>
+          
+          {/* 导入/导出按钮 */}
+          <div className="mb-6 flex flex-wrap gap-4">
+            <button
+              onClick={exportVehiclesToJSON}
+              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+            >
+              导出车辆数据 (JSON)
+            </button>
+            <button
+              onClick={triggerFileSelect}
+              className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors"
+            >
+              导入车辆数据 (JSON)
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".json"
+              className="hidden"
+            />
           </div>
           
           {/* 车辆列表 */}
