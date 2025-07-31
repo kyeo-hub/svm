@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "init:db": "tsx scripts/initDb.ts",
-    "init:vehicles": "tsx scripts/initVehicles.ts"
+    "init:vehicles": "tsx scripts/initVehicles.ts",
+    "update:stats": "tsx scripts/updateDailyStats.ts",
+    "update:stats-for-date": "tsx scripts/updateDailyStats.ts --date"
   },
   "dependencies": {
     "@types/dotenv": "^8.2.3",

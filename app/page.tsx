@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import 'leaflet/dist/leaflet.css';
 
 // 只在客户端导入leaflet
@@ -358,7 +359,17 @@ export default function Home() {
       {/* 头部 */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900">特种车辆设备管理系统</h1>
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-gray-900">特种车辆设备管理系统</h1>
+            <nav>
+              <Link 
+                href="/stats" 
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              >
+                统计分析
+              </Link>
+            </nav>
+          </div>
         </div>
       </header>
 

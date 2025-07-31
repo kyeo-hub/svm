@@ -54,6 +54,34 @@ export async function setupDatabase() {
     `);
     console.log('vehicle_status_history 表创建成功或已存在');
     
+    // 创建车辆状态段表（用于记录每次状态的开始和结束时间）
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS vehicle_status_segments (
+        id SERIAL PRIMARY KEY,
+        vehicle_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP,
+        duration_seconds INTEGER DEFAULT 0
+      )
+    `);
+    console.log('vehicle_status_segments 表创建成功或已存在');
+    
+    // 创建每日统计表（用于加速查询）
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_vehicle_stats (
+        id SERIAL PRIMARY KEY,
+        vehicle_id TEXT NOT NULL,
+        date DATE NOT NULL,
+        working_seconds INTEGER DEFAULT 0,
+        waiting_seconds INTEGER DEFAULT 0,
+        maintenance_seconds INTEGER DEFAULT 0,
+        fault_seconds INTEGER DEFAULT 0,
+        UNIQUE(vehicle_id, date)
+      )
+    `);
+    console.log('daily_vehicle_stats 表创建成功或已存在');
+    
     console.log('数据库表初始化完成');
   } catch (error) {
     console.error('数据库初始化错误:', error);
