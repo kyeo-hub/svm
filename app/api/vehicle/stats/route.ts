@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { VehicleService } from '../../../../lib/vehicleService';
+import { getShanghaiTime, getShanghaiStartOfDay } from '../../../../lib/timeUtils';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   let endDate: Date;
 
   if (startDateStr) {
-    startDate = new Date(startDateStr);
+    startDate = getShanghaiStartOfDay(startDateStr);
     if (isNaN(startDate.getTime())) {
       return new Response(JSON.stringify({ error: 'Invalid start_date format. Use YYYY-MM-DD' }), {
         status: 400,
@@ -29,12 +30,13 @@ export async function GET(request: NextRequest) {
     }
   } else {
     // 默认查询最近7天
-    startDate = new Date();
+    startDate = getShanghaiTime();
     startDate.setDate(startDate.getDate() - 7);
+    startDate = getShanghaiStartOfDay(startDate);
   }
 
   if (endDateStr) {
-    endDate = new Date(endDateStr);
+    endDate = getShanghaiStartOfDay(endDateStr);
     if (isNaN(endDate.getTime())) {
       return new Response(JSON.stringify({ error: 'Invalid end_date format. Use YYYY-MM-DD' }), {
         status: 400,
@@ -42,9 +44,13 @@ export async function GET(request: NextRequest) {
       }
       });
     }
+    // 设置为结束日期的结束时间 (23:59:59)
+    endDate.setHours(23, 59, 59, 999);
   } else {
     // 默认结束时间为今天
-    endDate = new Date();
+    endDate = getShanghaiTime();
+    endDate = getShanghaiStartOfDay(endDate);
+    endDate.setHours(23, 59, 59, 999);
   }
 
   // 确保结束时间不早于开始时间

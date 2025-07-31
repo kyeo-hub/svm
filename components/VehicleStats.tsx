@@ -1,6 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toShanghaiDateString } from '../lib/timeUtils';
+
+interface Vehicle {
+  id: number;
+  vehicle_id: string;
+  name: string;
+  status: '作业中' | '待命' | '维保中' | '故障中';
+  location_x: number;
+  location_y: number;
+  last_updated: string;
+}
 
 interface VehicleStatusDurationStats {
   '作业中': number;
@@ -28,15 +39,21 @@ interface DailyVehicleStats {
   fault_seconds: number;
 }
 
-export default function VehicleStats({ vehicleId }: { vehicleId: string }) {
+export default function VehicleStats({ 
+  vehicleId, 
+  vehicles 
+}: { 
+  vehicleId: string; 
+  vehicles?: Vehicle[]; // 可选的车辆列表，用于在CSV中显示车辆名称
+}) {
   const [stats, setStats] = useState<VehicleStatusDurationStats | null>(null);
   const [segments, setSegments] = useState<VehicleStatusSegment[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyVehicleStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
-    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
+    start: toShanghaiDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
+    end: toShanghaiDateString(new Date())
   });
   const [viewType, setViewType] = useState<'duration' | 'segments' | 'daily'>('duration');
 
@@ -115,6 +132,49 @@ export default function VehicleStats({ vehicleId }: { vehicleId: string }) {
     }
   };
 
+  // 下载数据为CSV
+  const downloadCSV = () => {
+    let csvContent = '';
+    const selectedVehicle = vehicles?.find(v => v.vehicle_id === vehicleId);
+    const vehicleName = selectedVehicle ? selectedVehicle.name : vehicleId;
+    
+    switch (viewType) {
+      case 'duration':
+        if (!stats) return;
+        csvContent = `车辆编号,车辆名称,状态,时长(秒),时长格式化\n`;
+        Object.entries(stats).forEach(([status, seconds]) => {
+          csvContent += `${vehicleId},${vehicleName},${status},${seconds},"${formatDuration(seconds)}"\n`;
+        });
+        break;
+        
+      case 'segments':
+        if (segments.length === 0) return;
+        csvContent = `ID,车辆编号,状态,开始时间,结束时间,持续时间(秒),持续时间格式化\n`;
+        segments.forEach(segment => {
+          csvContent += `${segment.id},${segment.vehicle_id},${segment.status},${segment.start_time},${segment.end_time || ''},${segment.duration_seconds || ''},"${segment.duration_seconds ? formatDuration(segment.duration_seconds) : ''}"\n`;
+        });
+        break;
+        
+      case 'daily':
+        if (dailyStats.length === 0) return;
+        csvContent = `ID,车辆编号,日期,作业中(秒),待命中(秒),维保中(秒),故障中(秒),作业中,待命中,维保中,故障中\n`;
+        dailyStats.forEach(stat => {
+          csvContent += `${stat.id},${stat.vehicle_id},${stat.date},${stat.working_seconds},${stat.waiting_seconds},${stat.maintenance_seconds},${stat.fault_seconds},"${formatDuration(stat.working_seconds)}","${formatDuration(stat.waiting_seconds)}","${formatDuration(stat.maintenance_seconds)}","${formatDuration(stat.fault_seconds)}"\n`;
+        });
+        break;
+    }
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `vehicle_stats_${vehicleId}_${viewType}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   useEffect(() => {
     if (vehicleId) {
       fetchStats();
@@ -124,7 +184,22 @@ export default function VehicleStats({ vehicleId }: { vehicleId: string }) {
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">车辆状态统计</h2>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">车辆状态统计</h2>
+          
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={downloadCSV}
+              disabled={loading}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              下载数据
+            </button>
+          </div>
+        </div>
         
         {/* 日期范围选择器 */}
         <div className="flex flex-wrap gap-4 mb-4">
@@ -270,10 +345,10 @@ export default function VehicleStats({ vehicleId }: { vehicleId: string }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(segment.start_time).toLocaleString()}
+                          {new Date(segment.start_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {segment.end_time ? new Date(segment.end_time).toLocaleString() : '当前状态'}
+                          {segment.end_time ? new Date(segment.end_time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '当前状态'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {segment.duration_seconds ? formatDuration(segment.duration_seconds) : '-'}

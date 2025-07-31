@@ -1,4 +1,25 @@
 import { VehicleService } from '../lib/vehicleService';
+import { getShanghaiTime } from '../lib/timeUtils';
+
+async function updateDailyStats() {
+  try {
+    // 获取昨天的日期（上海时区）
+    const yesterday = getShanghaiTime();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    console.log(`开始更新 ${yesterday.toISOString().split('T')[0]} 的每日统计数据...`);
+    
+    await VehicleService.updateDailyStats(yesterday);
+    
+    console.log('每日统计数据更新完成');
+  } catch (error) {
+    console.error('更新每日统计数据时出错:', error);
+    process.exit(1);
+  }
+}
+
+// 执行更新
+updateDailyStats();
 
 /**
  * 更新昨日的车辆统计信息

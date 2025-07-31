@@ -46,6 +46,11 @@ export default function StatsPage() {
     fetchVehicles();
   }, []);
 
+  // 处理车辆选择变化
+  const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedVehicleId(e.target.value);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 头部 */}
@@ -85,11 +90,41 @@ export default function StatsPage() {
             </div>
           ) : (
             <div className="px-4 py-6 sm:px-0">
+              {/* 车辆选择下拉框 */}
+              {vehicles.length > 0 && (
+                <div className="mb-6">
+                  <label htmlFor="vehicle-select" className="block text-sm font-medium text-gray-700 mb-2">
+                    选择车辆
+                  </label>
+                  <div className="flex space-x-2">
+                    <select
+                      id="vehicle-select"
+                      value={selectedVehicleId}
+                      onChange={handleVehicleChange}
+                      className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    >
+                      {vehicles.map((vehicle) => (
+                        <option key={vehicle.vehicle_id} value={vehicle.vehicle_id}>
+                          {vehicle.name} ({vehicle.vehicle_id})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={fetchVehicles}
+                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {selectedVehicleId && (
                 <VehicleStats 
-                  vehicleId={selectedVehicleId} 
+                  vehicleId={selectedVehicleId}
                   vehicles={vehicles}
-                  onVehicleChange={setSelectedVehicleId}
                 />
               )}
 

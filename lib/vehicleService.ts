@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { initializeDatabase } from '../db/database';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { getShanghaiTime } from './timeUtils';
 
 // Create a singleton pool instance
 const pool = initializeDatabase();
@@ -263,7 +264,7 @@ export class VehicleService {
   
   // 更新每日统计（用于定时任务）
   static async updateDailyStats(date?: Date) {
-    const targetDate = date || new Date();
+    const targetDate = date || getShanghaiTime();
     // 设置为目标日期的开始时间
     targetDate.setHours(0, 0, 0, 0);
     
