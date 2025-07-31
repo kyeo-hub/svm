@@ -231,13 +231,10 @@ export default function VehicleManagement() {
         { name: '故障中', value: 'fault' }
       ];
 
-      // API密钥
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY || '';
-
-      // 为每种状态生成二维码
+      // 为每种状态生成二维码 (移除API密钥参数，使用预签名URL方式)
       const qrCodes: {[key: string]: string} = {};
       for (const status of statuses) {
-        const url = `${window.location.origin}/api/vehicle?vehicle_id=${vehicle.vehicle_id}&status=${status.value}&api_key=${apiKey}`;
+        const url = `${window.location.origin}/api/vehicle/?vehicle_id=${vehicle.vehicle_id}&status=${status.value}&api_key=${apiKey}`;
         const dataUrl = await QRCode.toDataURL(url, {
           width: 200,
           margin: 2

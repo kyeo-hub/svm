@@ -80,7 +80,7 @@
 - PUT/DELETE /api/vehicles/\[id\]（更新/删除车辆）：需要认证
 - GET /api/vehicle（更新车辆状态）：使用API密钥认证
 
-所有认证都通过HTTP Authorization头传递，格式为：`Bearer <token_or_api_key>`
+所有认证都通过HTTP Authorization头传递，格式为：`Bearer <token_or_api_key>`，同时也支持通过查询参数`api_key`传递API密钥。
 
 ## 时区设置
 
@@ -113,6 +113,20 @@ ADMIN_PASSWORD=your_password
 ADMIN_SECRET_KEY=your_secret_key
 ```
 
+## 二维码生成与使用
+
+系统为每辆车生成四种状态的二维码，分别对应：
+- 作业中
+- 待命
+- 维保中
+- 故障中
+
+二维码使用说明：
+1. 二维码中不包含API密钥，避免泄露风险
+2. 系统通过环境变量中的API_KEY进行认证
+3. 扫描二维码时，系统会自动验证请求的合法性
+4. 每个二维码对应一个特定的车辆和状态更新操作
+
 ## API接口说明
 
 ### 车辆状态更新
@@ -120,6 +134,7 @@ ADMIN_SECRET_KEY=your_secret_key
 GET /api/vehicle?vehicle_id=:id&status=:status[&name=:name&location_x=:x&location_y=:y]
 ```
 通过GET请求更新车辆状态，支持可选的车辆名称和位置信息。
+认证方式：通过HTTP Header `Authorization: Bearer <API_KEY>` 或查询参数 `api_key=<API_KEY>`
 
 ### 获取所有车辆
 ```

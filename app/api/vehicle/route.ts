@@ -41,13 +41,19 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status');
   const location_x = searchParams.get('location_x');
   const location_y = searchParams.get('location_y');
+  // 从查询参数获取API密钥
+  const apiKeyFromQuery = searchParams.get('api_key');
   
-  // 简单的API密钥验证
+  // API密钥验证 - 支持从Header或查询参数获取
   const authHeader = request.headers.get('authorization');
-  const apiKey = process.env.API_KEY || 'default-key';
+  const apiKeyFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  const serverApiKey = process.env.API_KEY || 'default-key';
+  
+  // 检查API密钥（从Header或查询参数）
+  const providedApiKey = apiKeyFromHeader || apiKeyFromQuery;
   
   // 仅在设置了API_KEY环境变量时才进行验证
-  if (process.env.API_KEY && (!authHeader || authHeader !== `Bearer ${apiKey}`)) {
+  if (process.env.API_KEY && (!providedApiKey || providedApiKey !== serverApiKey)) {
     return new Response('Unauthorized', { status: 401 });
   }
 
