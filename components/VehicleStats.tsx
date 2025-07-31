@@ -28,15 +28,7 @@ interface DailyVehicleStats {
   fault_seconds: number;
 }
 
-export default function VehicleStats({ 
-  vehicleId, 
-  vehicles,
-  onVehicleChange
-}: { 
-  vehicleId: string; 
-  vehicles: any[];
-  onVehicleChange: (vehicleId: string) => void;
-}) {
+export default function VehicleStats({ vehicleId }: { vehicleId: string }) {
   const [stats, setStats] = useState<VehicleStatusDurationStats | null>(null);
   const [segments, setSegments] = useState<VehicleStatusSegment[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyVehicleStats[]>([]);
@@ -123,49 +115,6 @@ export default function VehicleStats({
     }
   };
 
-  // 下载数据为CSV
-  const downloadCSV = () => {
-    let csvContent = '';
-    const selectedVehicle = vehicles.find(v => v.vehicle_id === vehicleId);
-    const vehicleName = selectedVehicle ? selectedVehicle.name : vehicleId;
-    
-    switch (viewType) {
-      case 'duration':
-        if (!stats) return;
-        csvContent = `车辆编号,车辆名称,状态,时长(秒),时长格式化\n`;
-        Object.entries(stats).forEach(([status, seconds]) => {
-          csvContent += `${vehicleId},${vehicleName},${status},${seconds},"${formatDuration(seconds)}"\n`;
-        });
-        break;
-        
-      case 'segments':
-        if (segments.length === 0) return;
-        csvContent = `ID,车辆编号,状态,开始时间,结束时间,持续时间(秒),持续时间格式化\n`;
-        segments.forEach(segment => {
-          csvContent += `${segment.id},${segment.vehicle_id},${segment.status},${segment.start_time},${segment.end_time || ''},${segment.duration_seconds || ''},"${segment.duration_seconds ? formatDuration(segment.duration_seconds) : ''}"\n`;
-        });
-        break;
-        
-      case 'daily':
-        if (dailyStats.length === 0) return;
-        csvContent = `ID,车辆编号,日期,作业中(秒),待命中(秒),维保中(秒),故障中(秒),作业中,待命中,维保中,故障中\n`;
-        dailyStats.forEach(stat => {
-          csvContent += `${stat.id},${stat.vehicle_id},${stat.date},${stat.working_seconds},${stat.waiting_seconds},${stat.maintenance_seconds},${stat.fault_seconds},"${formatDuration(stat.working_seconds)}","${formatDuration(stat.waiting_seconds)}","${formatDuration(stat.maintenance_seconds)}","${formatDuration(stat.fault_seconds)}"\n`;
-        });
-        break;
-    }
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `vehicle_stats_${vehicleId}_${viewType}_${new Date().toISOString().slice(0, 10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   useEffect(() => {
     if (vehicleId) {
       fetchStats();
@@ -173,59 +122,28 @@ export default function VehicleStats({
   }, [vehicleId, viewType, dateRange]);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">车辆状态统计</h2>
-          
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={downloadCSV}
-              disabled={loading}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              下载数据
-            </button>
-          </div>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">车辆状态统计</h2>
         
-        {/* 车辆选择和日期范围选择器 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">选择车辆</label>
-            <select
-              value={vehicleId}
-              onChange={(e) => onVehicleChange(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {vehicles.map((vehicle) => (
-                <option key={vehicle.vehicle_id} value={vehicle.vehicle_id}>
-                  {vehicle.name} ({vehicle.vehicle_id})
-                </option>
-              ))}
-            </select>
-          </div>
-          
+        {/* 日期范围选择器 */}
+        <div className="flex flex-wrap gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
             <input
               type="date"
               value={dateRange.start}
               onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border rounded px-3 py-2"
             />
           </div>
-          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
             <input
               type="date"
               value={dateRange.end}
               onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border rounded px-3 py-2"
             />
           </div>
         </div>
@@ -233,31 +151,19 @@ export default function VehicleStats({
         {/* 视图类型切换 */}
         <div className="flex flex-wrap gap-2 mb-4">
           <button
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              viewType === 'duration' 
-                ? 'bg-blue-500 text-white shadow-md' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`px-4 py-2 rounded ${viewType === 'duration' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             onClick={() => setViewType('duration')}
           >
             时长统计
           </button>
           <button
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              viewType === 'segments' 
-                ? 'bg-blue-500 text-white shadow-md' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`px-4 py-2 rounded ${viewType === 'segments' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             onClick={() => setViewType('segments')}
           >
             状态段详情
           </button>
           <button
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              viewType === 'daily' 
-                ? 'bg-blue-500 text-white shadow-md' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`px-4 py-2 rounded ${viewType === 'daily' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             onClick={() => setViewType('daily')}
           >
             每日统计
@@ -266,65 +172,57 @@ export default function VehicleStats({
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-          <div className="flex">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="font-medium">错误</p>
-              <p>{error}</p>
-            </div>
-          </div>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          错误: {error}
         </div>
       )}
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
       ) : (
         <>
           {viewType === 'duration' && stats && (
             <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">状态时长统计</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <h3 className="text-xl font-semibold mb-4">状态时长统计</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="border rounded-lg p-4">
                   <div className="flex items-center mb-2">
                     <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
                     <span className="font-medium">作业中</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">{formatDuration(stats['作业中'])}</p>
+                  <p className="text-2xl font-bold">{formatDuration(stats['作业中'])}</p>
                 </div>
                 
-                <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="border rounded-lg p-4">
                   <div className="flex items-center mb-2">
                     <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
                     <span className="font-medium">待命</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">{formatDuration(stats['待命'])}</p>
+                  <p className="text-2xl font-bold">{formatDuration(stats['待命'])}</p>
                 </div>
                 
-                <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="border rounded-lg p-4">
                   <div className="flex items-center mb-2">
                     <div className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></div>
                     <span className="font-medium">维保中</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">{formatDuration(stats['维保中'])}</p>
+                  <p className="text-2xl font-bold">{formatDuration(stats['维保中'])}</p>
                 </div>
                 
-                <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="border rounded-lg p-4">
                   <div className="flex items-center mb-2">
                     <div className="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
                     <span className="font-medium">故障中</span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">{formatDuration(stats['故障中'])}</p>
+                  <p className="text-2xl font-bold">{formatDuration(stats['故障中'])}</p>
                 </div>
               </div>
               
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-lg font-semibold mb-3 text-gray-800">状态时长占比</h4>
-                <div className="space-y-3">
+              <div className="mt-6">
+                <h4 className="text-lg font-semibold mb-3">状态时长占比</h4>
+                <div className="space-y-2">
                   {Object.entries(stats).map(([status, seconds]) => {
                     const totalSeconds = Object.values(stats).reduce((sum, s) => sum + s, 0);
                     const percentage = totalSeconds > 0 ? (seconds / totalSeconds) * 100 : 0;
@@ -333,7 +231,7 @@ export default function VehicleStats({
                       <div key={status}>
                         <div className="flex justify-between mb-1">
                           <span className={`font-medium ${getStatusTextColor(status)}`}>{status}</span>
-                          <span className="text-gray-600">{percentage.toFixed(1)}% ({formatDuration(seconds)})</span>
+                          <span>{percentage.toFixed(1)}% ({formatDuration(seconds)})</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                           <div 
@@ -351,8 +249,8 @@ export default function VehicleStats({
 
           {viewType === 'segments' && (
             <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">状态段详情</h3>
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <h3 className="text-xl font-semibold mb-4">状态段详情</h3>
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -364,7 +262,7 @@ export default function VehicleStats({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {segments.map((segment) => (
-                      <tr key={segment.id} className="hover:bg-gray-50">
+                      <tr key={segment.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className={`w-3 h-3 rounded-full mr-2 ${getStatusColor(segment.status)}`}></div>
@@ -386,11 +284,8 @@ export default function VehicleStats({
                 </table>
                 
                 {segments.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p className="mt-2">该时间段内没有状态变更记录</p>
+                  <div className="text-center py-4 text-gray-500">
+                    该时间段内没有状态变更记录
                   </div>
                 )}
               </div>
@@ -399,8 +294,8 @@ export default function VehicleStats({
 
           {viewType === 'daily' && (
             <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">每日统计</h3>
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <h3 className="text-xl font-semibold mb-4">每日统计</h3>
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -413,7 +308,7 @@ export default function VehicleStats({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {dailyStats.map((stat) => (
-                      <tr key={stat.id} className="hover:bg-gray-50">
+                      <tr key={stat.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {stat.date}
                         </td>
@@ -435,11 +330,8 @@ export default function VehicleStats({
                 </table>
                 
                 {dailyStats.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p className="mt-2">该时间段内没有每日统计数据</p>
+                  <div className="text-center py-4 text-gray-500">
+                    该时间段内没有每日统计数据
                   </div>
                 )}
               </div>

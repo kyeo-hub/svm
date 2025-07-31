@@ -392,4 +392,41 @@ export class VehicleService {
       throw error;
     }
   }
+  
+  // 删除车辆及其相关数据
+  static async deleteVehicle(vehicle_id: string) {
+    const pool = initializeDatabase();
+    const client = await pool.connect();
+    
+    try {
+      // 开始事务
+      await client.query('BEGIN');
+      
+      // 删除车辆状态历史记录
+      await client.query('DELETE FROM vehicle_status_history WHERE vehicle_id = $1', [vehicle_id]);
+      
+      // 删除车辆状态段记录
+      await client.query('DELETE FROM vehicle_status_segments WHERE vehicle_id = $1', [vehicle_id]);
+      
+      // 删除车辆每日统计数据
+      await client.query('DELETE FROM daily_vehicle_stats WHERE vehicle_id = $1', [vehicle_id]);
+      
+      // 删除车辆本身
+      const result = await client.query('DELETE FROM vehicles WHERE vehicle_id = $1 RETURNING *', [vehicle_id]);
+      
+      // 提交事务
+      await client.query('COMMIT');
+      
+      // 返回被删除的车辆信息
+      return result.rows[0];
+    } catch (error) {
+      // 回滚事务
+      await client.query('ROLLBACK');
+      console.error('删除车辆错误:', error);
+      throw error;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  }
 }
