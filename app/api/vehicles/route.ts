@@ -1,8 +1,12 @@
 import { NextRequest } from 'next/server';
 import { VehicleService } from '../../../lib/vehicleService';
+import { isAuthenticated } from '../../../lib/auth';
 
 // 获取所有车辆
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // 允许公开访问车辆列表，以便主页和统计页面可以正常显示
+  // 管理操作（创建、更新、删除）仍然需要认证
+
   try {
     const vehicles = await VehicleService.getAllVehicles();
     return new Response(JSON.stringify(vehicles), {
@@ -20,6 +24,17 @@ export async function GET() {
 
 // 创建新车辆
 export async function POST(request: NextRequest) {
+  // 检查认证状态 - 创建车辆需要认证
+  if (!isAuthenticated(request)) {
+    return new Response(
+      JSON.stringify({ error: '未授权访问' }), 
+      { 
+        status: 401, 
+        headers: { 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+
   try {
     const body = await request.json();
     

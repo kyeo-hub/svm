@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { VehicleService } from '../../../../lib/vehicleService';
+import { isAuthenticated } from '../../../../lib/auth';
 
 // 根据ID获取单个车辆
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -28,6 +29,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 // 更新车辆信息
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  // 检查认证状态
+  if (!isAuthenticated(request)) {
+    return new Response(
+      JSON.stringify({ error: '未授权访问' }), 
+      { 
+        status: 401, 
+        headers: { 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+
   try {
     const body = await request.json();
     
@@ -73,6 +85,17 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 // 删除车辆
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  // 检查认证状态
+  if (!isAuthenticated(request)) {
+    return new Response(
+      JSON.stringify({ error: '未授权访问' }), 
+      { 
+        status: 401, 
+        headers: { 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+
   try {
     // 简单的API密钥验证
     const authHeader = request.headers.get('authorization');

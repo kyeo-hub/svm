@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { VehicleService } from '../../../lib/vehicleService';
 import { Pool } from 'pg';
+import { isAuthenticated } from '../../../lib/auth';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgres://user:password@localhost:5432/vehicle_db',
@@ -73,6 +74,55 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error updating vehicle status:', error);
     return new Response(JSON.stringify({ error: 'Failed to update vehicle status' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// 删除车辆
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  // 检查认证状态
+  if (!isAuthenticated(request)) {
+    return new Response(
+      JSON.stringify({ error: '未授权访问' }), 
+      { 
+        status: 401, 
+        headers: { 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+
+  try {
+    const vehicle_id = params.id;
+    
+    if (!vehicle_id) {
+      return new Response(JSON.stringify({ error: '缺少车辆ID参数' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // 删除车辆
+    const deletedVehicle = await VehicleService.deleteVehicle(vehicle_id);
+    
+    if (!deletedVehicle) {
+      return new Response(JSON.stringify({ error: '未找到指定的车辆' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    return new Response(JSON.stringify({ 
+      message: '车辆删除成功',
+      vehicle: deletedVehicle
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('删除车辆失败:', error);
+    return new Response(JSON.stringify({ error: '删除车辆失败' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

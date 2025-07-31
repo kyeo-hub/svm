@@ -51,6 +51,7 @@
 - 支持删除车辆及其相关数据
 - 支持查看所有车辆列表
 - 提供预设车辆数据初始化功能
+- 管理页面需要登录验证才能访问
 
 ## 技术栈
 - 框架：Next.js (全栈框架，同时处理前端渲染和后端API)
@@ -63,6 +64,23 @@
 ## 安全要求
 - 简单的API密钥验证
 - 基本的HTTPS通信保障
+- 管理页面需要登录验证
+
+## 认证机制
+
+系统使用多种认证机制来平衡安全性和可用性：
+
+1. 公开访问：主页和统计分析页面可以公开访问，无需认证
+2. API接口认证：使用API密钥（API_KEY）进行认证，用于车辆状态更新等公开接口
+3. 管理页面认证：使用用户名/密码登录，生成token进行认证，用于管理功能
+
+认证检查说明：
+- GET /api/vehicles（获取所有车辆）：公开访问
+- POST /api/vehicles（创建车辆）：需要认证
+- PUT/DELETE /api/vehicles/[id]（更新/删除车辆）：需要认证
+- GET /api/vehicle（更新车辆状态）：使用API密钥认证
+
+所有认证都通过HTTP Authorization头传递，格式为：`Bearer <token_or_api_key>`
 
 ## 时区设置
 
@@ -70,6 +88,23 @@
 
 ```
 TZ=Asia/Shanghai
+```
+
+## 管理页面登录
+
+管理页面需要登录验证才能访问，以确保系统的安全性。默认的登录凭据如下：
+
+```
+用户名: admin
+密码: admin123
+```
+
+在生产环境中，建议修改默认凭据。可以通过设置以下环境变量来自定义登录凭据：
+
+```
+ADMIN_USERNAME=your_username
+ADMIN_PASSWORD=your_password
+ADMIN_SECRET_KEY=your_secret_key
 ```
 
 ## API接口说明
