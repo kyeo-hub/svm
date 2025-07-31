@@ -191,3 +191,52 @@ GET /api/events
    - 查询缓存
    - 增量更新
    - 数据归档
+
+## Docker部署
+
+项目支持通过Docker进行部署，提供了Dockerfile和docker-compose.yml文件。
+
+### 使用Docker Compose部署（推荐）
+
+1. 确保已安装Docker和Docker Compose
+2. 复制`.env.production.example`为`.env`并根据需要修改配置：
+   ```bash
+   cp .env.production.example .env
+   ```
+3. 构建并启动服务：
+   ```bash
+   docker-compose up -d
+   ```
+4. 初始化数据库（首次部署时）：
+   ```bash
+   docker-compose run init
+   ```
+5. 访问应用：http://localhost:3000
+
+### 使用单独的Docker部署
+
+1. 构建镜像：
+   ```bash
+   docker build -t vehicle-management-system .
+   ```
+2. 运行容器（需要连接到PostgreSQL数据库）：
+   ```bash
+   docker run -d \
+     -p 3000:3000 \
+     -e DATABASE_URL=postgresql://user:password@host:port/database \
+     -e API_KEY=your-api-key \
+     -e ADMIN_USERNAME=admin \
+     -e ADMIN_PASSWORD=admin123 \
+     -e ADMIN_SECRET_KEY=your-secret-key \
+     -e TZ=Asia/Shanghai \
+     vehicle-management-system
+   ```
+
+### 环境变量说明
+
+- `DATABASE_URL`: PostgreSQL数据库连接字符串
+- `API_KEY`: 用于API认证的密钥
+- `ADMIN_USERNAME`: 管理员用户名
+- `ADMIN_PASSWORD`: 管理员密码
+- `ADMIN_SECRET_KEY`: 用于生成JWT token的密钥
+- `TZ`: 时区设置，默认为Asia/Shanghai

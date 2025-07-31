@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/vehicle_db
+      - API_KEY=your-api-key-here
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+      - ADMIN_SECRET_KEY=your-secret-key-here
+      - TZ=Asia/Shanghai
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=vehicle_db
+      - TZ=Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  init:
+    build: .
+    command: ["./scripts/init.sh"]
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/vehicle_db
+    depends_on:
+      - db
+    volumes:
+      - ./scripts/init.sh:/app/scripts/init.sh
+
+volumes:
+  postgres_data:

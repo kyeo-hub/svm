@@ -1,0 +1,16 @@
+node_modules
+.next
+.env*
+!.env.example
+Dockerfile
+.dockerignore
+README.md
+.git
+.gitignore
+.nyc_output
+coverage
+.nyc_output
+.vscode
+*.log
+logs
+*.tgz
