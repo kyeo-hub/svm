@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_USER: kyeo
-      POSTGRES_PASSWORD: K572375k
-      POSTGRES_DB: svm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vehicle
     volumes:
       - postgres_data:/var/lib/postgresql/data
   app:
