@@ -23,6 +23,7 @@ pnpm-debug.log*
 
 # Environment variables
 .env*.local
+.env
 
 # SQLite database
 *.db
