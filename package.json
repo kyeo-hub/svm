@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "init:db": "tsx scripts/initDb.ts",
+    "init:db": "node scripts/initDb.js",
     "init:vehicles": "tsx scripts/initVehicles.ts",
     "update:stats": "tsx scripts/updateDailyStats.ts",
     "update:stats-for-date": "tsx scripts/updateDailyStats.ts --date"

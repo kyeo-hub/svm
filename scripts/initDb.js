@@ -1,8 +1,20 @@
 // 确保加载环境变量
-import { config } from 'dotenv';
-config({ path: '.env' });
+require('dotenv').config({ path: '.env' });
 
-import { setupDatabase } from '../db/database';
+// 打印当前工作目录，帮助调试
+console.log('当前工作目录:', process.cwd());
+
+// 尝试加载数据库模块
+let database;
+try {
+  database = require('../db/database.js');
+  console.log('成功加载数据库模块');
+} catch (error) {
+  console.error('加载数据库模块失败:', error);
+  process.exit(1);
+}
+
+const { setupDatabase } = database;
 
 async function initDb() {
   console.log('开始初始化数据库...');

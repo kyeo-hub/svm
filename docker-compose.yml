@@ -1,4 +1,12 @@
 services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: kyeo
+      POSTGRES_PASSWORD: K572375k
+      POSTGRES_DB: svm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
   app:
     build: .
     ports:
@@ -9,17 +17,6 @@ services:
       - TZ=Asia/Shanghai
     depends_on:
       - db
-
-  db:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: kyeo
-      POSTGRES_PASSWORD: K572375k
-      POSTGRES_DB: svm
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
 
 volumes:
   postgres_data:
