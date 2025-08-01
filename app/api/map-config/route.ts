@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 
+// 强制动态渲染，防止构建时预渲染导致超时
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // 读取地图配置文件

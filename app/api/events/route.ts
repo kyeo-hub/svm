@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
-import { addClient, removeClient } from '../vehicle/route';
+import { addClient, removeClient } from '../../../lib/eventBroadcast';
+
+// 强制动态渲染，防止构建时预渲染导致超时
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   // 设置SSE响应头

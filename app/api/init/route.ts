@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import { VehicleService } from '../../../lib/vehicleService';
 import { setupDatabase } from '../../../db/database';
 
+// 强制动态渲染，防止构建时预渲染导致超时
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     // 检查API密钥（仅在设置了API_KEY环境变量时才进行验证）
@@ -16,7 +19,7 @@ export async function POST(request: NextRequest) {
     await setupDatabase();
     
     // 初始化默认车辆
-    await VehicleService.initializeDefaultVehicles();
+    await VehicleService.initializePresetVehicles();
     
     return new Response(JSON.stringify({ message: '数据库和默认车辆数据初始化成功' }), {
       status: 200,

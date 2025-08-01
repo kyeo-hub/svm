@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import { VehicleService } from '../../../lib/vehicleService';
 import { isAuthenticated } from '../../../lib/auth';
 
+// 强制动态渲染，防止构建时预渲染导致超时
+export const dynamic = 'force-dynamic';
+
 // 获取所有车辆
 export async function GET(request: NextRequest) {
   // 允许公开访问车辆列表，以便主页和统计页面可以正常显示

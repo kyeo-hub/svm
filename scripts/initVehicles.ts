@@ -14,7 +14,7 @@ async function initVehicles() {
     console.log('数据库表初始化完成!');
     
     // 初始化预设车辆数据（从 data/presetVehicles.json 文件加载）
-    await VehicleService.initializeDefaultVehicles();
+    await VehicleService.initializePresetVehicles();
     
     console.log('车辆数据初始化完成!');
   } catch (error) {

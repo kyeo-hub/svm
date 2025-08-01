@@ -1,5 +1,6 @@
 import { VehicleService } from '../lib/vehicleService';
 import { initializeDatabase } from '../db/database';
+import { getShanghaiTime } from '../lib/timeUtils';
 
 async function updateDailyStats() {
   try {
@@ -74,4 +75,8 @@ if (args.includes('--date') && args.length > args.indexOf('--date') + 1) {
   targetDate = args[args.indexOf('--date') + 1];
 }
 
-updateDailyStatsForDate(targetDate);
+if (targetDate) {
+  updateSpecificDateStats(targetDate);
+} else {
+  updateDailyStats();
+}

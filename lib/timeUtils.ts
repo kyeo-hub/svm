@@ -28,7 +28,29 @@ export function getShanghaiStartOfDay(date: string | Date): Date {
   let dateStr: string;
   
   if (typeof date === 'string') {
-    dateStr = date;
+    // 验证日期格式是否为YYYY-MM-DD
+    const dateRegex = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
+    const match = date.match(dateRegex);
+    
+    if (match) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+      
+      // 验证月份和日期的有效性
+      if (month < 1 || month > 12 || day < 1 || day > 31) {
+        // 返回无效日期
+        return new Date('Invalid Date');
+      }
+      
+      // 格式化日期确保两位数格式
+      const formattedMonth = month.toString().padStart(2, '0');
+      const formattedDay = day.toString().padStart(2, '0');
+      dateStr = `${year}-${formattedMonth}-${formattedDay}`;
+    } else {
+      // 格式不匹配，返回无效日期
+      return new Date('Invalid Date');
+    }
   } else {
     dateStr = date.toISOString().split('T')[0];
   }

@@ -21,9 +21,18 @@ export async function GET(request: NextRequest) {
   let endDate: Date;
 
   if (startDateStr) {
+    // 验证日期格式
+    const dateRegex = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
+    if (!dateRegex.test(startDateStr)) {
+      return new Response(JSON.stringify({ error: 'Invalid start_date format. Use YYYY-MM-DD' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     startDate = getShanghaiStartOfDay(startDateStr);
     if (isNaN(startDate.getTime())) {
-      return new Response(JSON.stringify({ error: 'Invalid start_date format. Use YYYY-MM-DD' }), {
+      return new Response(JSON.stringify({ error: 'Invalid start_date value. Please check month (1-12) and day values' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -36,12 +45,20 @@ export async function GET(request: NextRequest) {
   }
 
   if (endDateStr) {
-    endDate = getShanghaiStartOfDay(endDateStr);
-    if (isNaN(endDate.getTime())) {
+    // 验证日期格式
+    const dateRegex = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
+    if (!dateRegex.test(endDateStr)) {
       return new Response(JSON.stringify({ error: 'Invalid end_date format. Use YYYY-MM-DD' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' 
-      }
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    endDate = getShanghaiStartOfDay(endDateStr);
+    if (isNaN(endDate.getTime())) {
+      return new Response(JSON.stringify({ error: 'Invalid end_date value. Please check month (1-12) and day values' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
       });
     }
     // 设置为结束日期的结束时间 (23:59:59)
@@ -51,6 +68,21 @@ export async function GET(request: NextRequest) {
     endDate = getShanghaiTime();
     endDate = getShanghaiStartOfDay(endDate);
     endDate.setHours(23, 59, 59, 999);
+  }
+
+  // 检查日期是否有效
+  if (isNaN(startDate.getTime())) {
+    return new Response(JSON.stringify({ error: 'Invalid start_date format or value. Use YYYY-MM-DD with valid month (1-12) and day values' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  
+  if (isNaN(endDate.getTime())) {
+    return new Response(JSON.stringify({ error: 'Invalid end_date format or value. Use YYYY-MM-DD with valid month (1-12) and day values' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // 确保结束时间不早于开始时间

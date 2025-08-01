@@ -3,36 +3,20 @@ import { VehicleService } from '../../../lib/vehicleService';
 import { Pool } from 'pg';
 import { isAuthenticated } from '../../../lib/auth';
 
+// 强制动态渲染，防止构建时预渲染导致超时
+export const dynamic = 'force-dynamic';
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgres://user:password@localhost:5432/vehicle_db',
 });
 
-export const query = (text: string, params?: any[]) => {
+const query = (text: string, params?: any[]) => {
   return pool.query(text, params);
 };
 
-// 简单的广播机制
-let clients: any[] = [];
+import { broadcastUpdate } from '../../../lib/eventBroadcast';
 
-export function addClient(client: any) {
-  clients.push(client);
-}
 
-export function removeClient(client: any) {
-  clients = clients.filter(c => c !== client);
-}
-
-function broadcastUpdate(data: any) {
-  const message = `data: ${JSON.stringify(data)}\n\n`;
-  clients.forEach(client => {
-    try {
-      client.write(message);
-    } catch (error) {
-      console.error('Error broadcasting message:', error);
-      removeClient(client);
-    }
-  });
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
