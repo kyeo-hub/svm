@@ -9,13 +9,6 @@ export async function GET(request: NextRequest) {
   const endDateStr = searchParams.get('end_date');
   const type = searchParams.get('type') || 'duration'; // duration | segments | daily
 
-  if (!vehicle_id) {
-    return new Response(JSON.stringify({ error: 'Missing required parameter: vehicle_id' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
   // 解析日期参数
   let startDate: Date;
   let endDate: Date;
@@ -96,22 +89,44 @@ export async function GET(request: NextRequest) {
   try {
     let result;
     
-    switch (type) {
-      case 'segments':
-        // 获取状态段数据
-        result = await VehicleService.getVehicleStatusSegments(vehicle_id, startDate, endDate);
-        break;
-        
-      case 'daily':
-        // 获取每日统计数据
-        result = await VehicleService.getVehicleDailyStats(vehicle_id, startDate, endDate);
-        break;
-        
-      case 'duration':
-      default:
-        // 获取状态时长统计数据
-        result = await VehicleService.getVehicleStatusDurationStats(vehicle_id, startDate, endDate);
-        break;
+    if (vehicle_id) {
+      // 查询单个车辆的统计信息
+      switch (type) {
+        case 'segments':
+          // 获取状态段数据
+          result = await VehicleService.getVehicleStatusSegments(vehicle_id, startDate, endDate);
+          break;
+          
+        case 'daily':
+          // 获取每日统计数据
+          result = await VehicleService.getVehicleDailyStats(vehicle_id, startDate, endDate);
+          break;
+          
+        case 'duration':
+        default:
+          // 获取状态时长统计数据
+          result = await VehicleService.getVehicleStatusDurationStats(vehicle_id, startDate, endDate);
+          break;
+      }
+    } else {
+      // 查询所有车辆的统计信息
+      switch (type) {
+        case 'segments':
+          // 获取所有车辆的状态段数据
+          result = await VehicleService.getAllVehiclesStatusSegments(startDate, endDate);
+          break;
+          
+        case 'daily':
+          // 获取所有车辆的每日统计数据
+          result = await VehicleService.getAllVehiclesDailyStats(startDate, endDate);
+          break;
+          
+        case 'duration':
+        default:
+          // 获取所有车辆的状态时长统计数据
+          result = await VehicleService.getAllVehiclesStatusDurationStats(startDate, endDate);
+          break;
+      }
     }
 
     return new Response(JSON.stringify(result), {

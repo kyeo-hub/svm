@@ -283,40 +283,6 @@ export class VehicleService {
     }
   }
   
-  // 获取车辆状态段
-  static async getVehicleStatusSegments(vehicle_id: string, startDate: Date, endDate: Date) {
-    try {
-      const result = await pool.query(`
-        SELECT * FROM vehicle_status_segments
-        WHERE vehicle_id = $1 
-        AND start_time >= $2 
-        AND (end_time <= $3 OR end_time IS NULL)
-        ORDER BY start_time DESC
-      `, [vehicle_id, startDate, endDate]);
-      return result.rows;
-    } catch (error) {
-      console.error('获取车辆状态段错误:', error);
-      throw error;
-    }
-  }
-  
-  // 获取车辆每日统计
-  static async getVehicleDailyStats(vehicle_id: string, startDate: Date, endDate: Date) {
-    try {
-      const result = await pool.query(`
-        SELECT * FROM daily_vehicle_stats
-        WHERE vehicle_id = $1
-        AND date >= $2
-        AND date <= $3
-        ORDER BY date DESC
-      `, [vehicle_id, startDate, endDate]);
-      return result.rows;
-    } catch (error) {
-      console.error('获取车辆每日统计错误:', error);
-      throw error;
-    }
-  }
-  
   // 获取车辆在指定时间段内的状态时长统计
   static async getVehicleStatusDurationStats(vehicle_id: string, startDate: Date, endDate: Date) {
     try {
@@ -352,6 +318,127 @@ export class VehicleService {
       return stats;
     } catch (error) {
       console.error('获取车辆状态时长统计错误:', error);
+      throw error;
+    }
+  }
+  
+  // 获取所有车辆在指定时间段内的状态时长统计
+  static async getAllVehiclesStatusDurationStats(startDate: Date, endDate: Date) {
+    try {
+      // 查询所有车辆的状态段表计算时长
+      const result = await pool.query(`
+        SELECT 
+          vehicle_id,
+          status,
+          SUM(
+            CASE 
+              WHEN end_time IS NOT NULL THEN EXTRACT(EPOCH FROM (end_time - start_time))
+              ELSE EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - start_time))
+            END
+          ) as total_seconds
+        FROM vehicle_status_segments
+        WHERE start_time <= $2
+        AND (end_time IS NULL OR end_time >= $1)
+        GROUP BY vehicle_id, status
+        ORDER BY vehicle_id
+      `, [startDate, endDate]);
+      
+      // 整理结果
+      const allStats: { [vehicle_id: string]: { [status: string]: number } } = {};
+      
+      // 初始化所有车辆的状态统计
+      const vehicles = await this.getAllVehicles();
+      vehicles.forEach(vehicle => {
+        allStats[vehicle.vehicle_id] = {
+          '作业中': 0,
+          '待命': 0,
+          '维保中': 0,
+          '故障中': 0
+        };
+      });
+      
+      // 填充实际数据
+      result.rows.forEach(row => {
+        if (!allStats[row.vehicle_id]) {
+          allStats[row.vehicle_id] = {
+            '作业中': 0,
+            '待命': 0,
+            '维保中': 0,
+            '故障中': 0
+          };
+        }
+        allStats[row.vehicle_id][row.status] = parseFloat(row.total_seconds) || 0;
+      });
+      
+      return allStats;
+    } catch (error) {
+      console.error('获取所有车辆状态时长统计错误:', error);
+      throw error;
+    }
+  }
+  
+  // 获取车辆状态段
+  static async getVehicleStatusSegments(vehicle_id: string, startDate: Date, endDate: Date) {
+    try {
+      const result = await pool.query(`
+        SELECT * FROM vehicle_status_segments
+        WHERE vehicle_id = $1 
+        AND start_time >= $2 
+        AND (end_time <= $3 OR end_time IS NULL)
+        ORDER BY start_time DESC
+      `, [vehicle_id, startDate, endDate]);
+      return result.rows;
+    } catch (error) {
+      console.error('获取车辆状态段错误:', error);
+      throw error;
+    }
+  }
+  
+  // 获取所有车辆状态段
+  static async getAllVehiclesStatusSegments(startDate: Date, endDate: Date) {
+    try {
+      const result = await pool.query(`
+        SELECT * FROM vehicle_status_segments
+        WHERE start_time >= $1 
+        AND (end_time <= $2 OR end_time IS NULL)
+        ORDER BY vehicle_id, start_time DESC
+      `, [startDate, endDate]);
+      return result.rows;
+    } catch (error) {
+      console.error('获取所有车辆状态段错误:', error);
+      throw error;
+    }
+  }
+  
+  // 获取车辆每日统计
+  static async getVehicleDailyStats(vehicle_id: string, startDate: Date, endDate: Date) {
+    try {
+      const result = await pool.query(`
+        SELECT * FROM daily_vehicle_stats
+        WHERE vehicle_id = $1
+        AND date >= $2
+        AND date <= $3
+        ORDER BY date DESC
+      `, [vehicle_id, startDate, endDate]);
+      return result.rows;
+    } catch (error) {
+      console.error('获取车辆每日统计错误:', error);
+      throw error;
+    }
+  }
+  
+  // 获取所有车辆每日统计
+  static async getAllVehiclesDailyStats(startDate: Date, endDate: Date) {
+    try {
+      const result = await pool.query(`
+        SELECT * FROM daily_vehicle_stats
+        WHERE date >= $1
+        AND date <= $2
+        ORDER BY vehicle_id, date DESC
+      `, [startDate, endDate]);
+      return result.rows;
+    } catch (error) {
+      console.error('获取所有车辆每日统计错误:', error);
       throw error;
     }
   }
