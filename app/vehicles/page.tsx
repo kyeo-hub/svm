@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 interface Vehicle {
   id?: number;
@@ -14,12 +16,12 @@ interface Vehicle {
   last_updated?: string;
 }
 
-// 定义Omit类型，或者确保正确导入
-type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+// 定义VehicleForm类型，排除id和last_updated字段
+type VehicleForm = Pick<Vehicle, 'vehicle_id' | 'name' | 'status' | 'location_x' | 'location_y'>;
 
 export default function VehicleManagement() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [formData, setFormData] = useState<Omit<Vehicle, 'id' | 'last_updated'>>({ 
+  const [formData, setFormData] = useState<VehicleForm>({ 
     vehicle_id: '', 
     name: '', 
     status: '待命',
@@ -32,6 +34,8 @@ export default function VehicleManagement() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>('');
+  const [allQrCodes, setAllQrCodes] = useState<{[key: string]: {[key: string]: string}}>({});
+  const [isGeneratingAllQrCodes, setIsGeneratingAllQrCodes] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -277,8 +281,8 @@ export default function VehicleManagement() {
     const positions = [
       { x: 25, y: 60, status: '作业中' },
       { x: 225, y: 60, status: '待命' },
-      { x: 25, y: 310, status: '维保中' }, // 增加垂直间距
-      { x: 225, y: 310, status: '故障中' }  // 增加垂直间距
+      { x: 25, y: 310, status: '维保中' },
+      { x: 225, y: 310, status: '故障中' }
     ];
 
     positions.forEach(pos => {
@@ -288,7 +292,7 @@ export default function VehicleManagement() {
       
       // 绘制状态标签
       ctx.font = 'bold 16px Arial';
-      ctx.fillText(pos.status, pos.x + 100, pos.y + 225); // 调整文字位置
+      ctx.fillText(pos.status, pos.x + 100, pos.y + 225);
     });
 
     // 下载图像
@@ -296,6 +300,77 @@ export default function VehicleManagement() {
     link.href = canvas.toDataURL('image/png');
     link.download = `车辆_${selectedVehicle.vehicle_id}_状态二维码.png`;
     link.click();
+  };
+
+  // 批量生成所有车辆的二维码
+  const generateAllQRCodes = async () => {
+    try {
+      setIsGeneratingAllQrCodes(true);
+      setError(null);
+      setSuccess(null);
+      
+      // 定义四种状态
+      const statuses = [
+        { name: '作业中', value: 'working' },
+        { name: '待命', value: 'waiting' },
+        { name: '维保中', value: 'maintenance' },
+        { name: '故障中', value: 'fault' }
+      ];
+      
+      const allQrCodesData: {[key: string]: {[key: string]: string}} = {};
+      
+      // 为每辆车生成二维码
+      for (const vehicle of vehicles) {
+        const qrCodes: {[key: string]: string} = {};
+        for (const status of statuses) {
+          const url = `${window.location.origin}/api/vehicle/?vehicle_id=${vehicle.vehicle_id}&status=${status.value}&api_key=${apiKey}`;
+          const dataUrl = await QRCode.toDataURL(url, {
+            width: 200,
+            margin: 2
+          });
+          qrCodes[status.name] = dataUrl;
+        }
+        allQrCodesData[vehicle.vehicle_id] = qrCodes;
+      }
+      
+      setAllQrCodes(allQrCodesData);
+      setIsGeneratingAllQrCodes(false);
+      setSuccess(`成功为 ${vehicles.length} 辆车生成二维码`);
+    } catch (err) {
+      console.error('批量生成二维码失败:', err);
+      setError('批量生成二维码失败');
+      setIsGeneratingAllQrCodes(false);
+    }
+  };
+
+  // 批量下载所有二维码为ZIP文件
+  const downloadAllQRCodesAsZip = async () => {
+    try {
+      const zip = new JSZip();
+      
+      // 为每辆车创建一个文件夹
+      for (const vehicle of vehicles) {
+        const vehicleFolder = zip.folder(`${vehicle.vehicle_id}_${vehicle.name}`);
+        if (!vehicleFolder) continue;
+        
+        const vehicleQrCodes = allQrCodes[vehicle.vehicle_id];
+        if (!vehicleQrCodes) continue;
+        
+        // 为每种状态创建二维码图片
+        for (const [statusName, dataUrl] of Object.entries(vehicleQrCodes)) {
+          const base64Data = dataUrl.split(',')[1];
+          vehicleFolder.file(`${statusName}.png`, base64Data, { base64: true });
+        }
+      }
+      
+      // 生成ZIP文件并下载
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `所有车辆二维码_${new Date().toISOString().slice(0, 10)}.zip`);
+      setSuccess('二维码ZIP文件下载成功');
+    } catch (err) {
+      console.error('下载ZIP文件失败:', err);
+      setError('下载ZIP文件失败');
+    }
   };
 
   // 导出车辆数据为JSON
@@ -536,6 +611,21 @@ export default function VehicleManagement() {
             >
               导入车辆数据 (JSON)
             </button>
+            <button
+              onClick={generateAllQRCodes}
+              disabled={isGeneratingAllQrCodes || vehicles.length === 0}
+              className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGeneratingAllQrCodes ? '生成中...' : '批量生成所有二维码'}
+            </button>
+            {Object.keys(allQrCodes).length > 0 && (
+              <button
+                onClick={downloadAllQRCodesAsZip}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                下载所有二维码 (ZIP)
+              </button>
+            )}
             <input
               type="file"
               ref={fileInputRef}
@@ -636,8 +726,8 @@ export default function VehicleManagement() {
         
         {/* 二维码模态框 */}
         {selectedVehicle && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-4xl w-full my-8">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold">
